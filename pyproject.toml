@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "logcapy"
+version = "0.1.0"
+description = "A robust logging capability library with AOP and context support."
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = ["logging", "exception", "context", "asyncio", "aop"]
+authors = [
+  { name = "LogCapy Team", email = "team@logcapy.dev" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "typing-extensions>=4.0.0",
+]
+
+[project.optional-dependencies]
+loguru = ["loguru>=0.7.0"]
+fastapi = ["fastapi", "uvicorn"]
+django = ["django>=4.0"]
+flask = ["flask>=2.0"]
+all = ["loguru", "fastapi", "django", "flask"]
+
+[project.urls]
+Documentation = "https://github.com/username/logcapy#readme"
+Issues = "https://github.com/username/logcapy/issues"
+Source = "https://github.com/username/logcapy"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/logcapy"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=src/logcapy --cov-report=term-missing --cov-report=html"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+
+[tool.mypy]
+strict = true
+files = ["src/logcapy"]
