@@ -2,7 +2,7 @@ import logging
 from mermaid_trace.core.formatter import MermaidFormatter
 from mermaid_trace.core.events import FlowEvent
 
-def test_formatter_basic():
+def test_formatter_basic() -> None:
     formatter = MermaidFormatter()
     event = FlowEvent(
         source="Client", target="Server", action="GET", message="GET /", trace_id="1"
@@ -14,7 +14,7 @@ def test_formatter_basic():
     line = formatter.format(record)
     assert line == "Client->>Server: GET /"
 
-def test_formatter_sanitize():
+def test_formatter_sanitize() -> None:
     formatter = MermaidFormatter()
     event = FlowEvent(
         source="My Client", target="My.Server-1", action="Call", message="Msg", trace_id="1"
@@ -26,7 +26,7 @@ def test_formatter_sanitize():
     # Spaces -> _, Dots -> _, Hyphens -> _ (via regex \W -> _)
     assert "My_Client->>My_Server_1" in line
 
-def test_formatter_return():
+def test_formatter_return() -> None:
     formatter = MermaidFormatter()
     event = FlowEvent(
         source="Server", target="Client", action="GET", message="Return", 
@@ -38,7 +38,7 @@ def test_formatter_return():
     line = formatter.format(record)
     assert line == "Server-->>Client: Return: 200 OK"
 
-def test_formatter_error():
+def test_formatter_error() -> None:
     formatter = MermaidFormatter()
     event = FlowEvent(
         source="Server", target="Client", action="GET", message="Err", 
@@ -50,7 +50,7 @@ def test_formatter_error():
     line = formatter.format(record)
     assert line == "Server--xClient: Error: ValueError"
 
-def test_formatter_escape():
+def test_formatter_escape() -> None:
     formatter = MermaidFormatter()
     event = FlowEvent(
         source="A", target="B", action="Call", message="Line1\nLine2", trace_id="1"

@@ -3,14 +3,15 @@ import pytest
 from fastapi import FastAPI
 from mermaid_trace.integrations.fastapi import MermaidTraceMiddleware
 from mermaid_trace import configure_flow
+from typing import Optional, Any
 
 @pytest.fixture
-def temp_mmd_file(tmp_path):
+def temp_mmd_file(tmp_path: Any) -> str:
     """Fixture to provide a temporary path for the .mmd file."""
     file_path = tmp_path / "integration_trace.mmd"
     return str(file_path)
 
-def test_fastapi_integration_file_output(temp_mmd_file):
+def test_fastapi_integration_file_output(temp_mmd_file: str) -> None:
     """
     Integration test ensuring that MermaidTraceMiddleware writes correctly to a file.
     """
@@ -23,13 +24,13 @@ def test_fastapi_integration_file_output(temp_mmd_file):
         app.add_middleware(MermaidTraceMiddleware, app_name="IntegrationApp")
         
         @app.get("/items/{item_id}")
-        def read_item(item_id: int, q: str = None):
+        def read_item(item_id: int, q: Optional[str] = None) -> dict[str, Any]:
             return {"item_id": item_id, "q": q}
             
         from httpx import AsyncClient, ASGITransport
         import asyncio
         
-        async def run_test():
+        async def run_test() -> None:
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 # 3. Perform a request

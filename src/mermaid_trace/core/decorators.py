@@ -2,7 +2,7 @@ import functools
 import logging
 import inspect
 import reprlib
-from typing import Optional, Any, Callable, Tuple, Dict, Union, TypeVar, cast
+from typing import Optional, Any, Callable, Tuple, Dict, Union, TypeVar, cast, overload
 
 from .events import FlowEvent
 from .context import LogContext
@@ -133,6 +133,19 @@ def _log_error(logger: logging.Logger,
         trace_id=trace_id
     )
     logger.error(f"{target}-x{source}: Error", extra={"flow_event": err_event})
+
+@overload
+def trace_interaction(func: F) -> F:
+    ...
+
+@overload
+def trace_interaction(
+    *, 
+    source: Optional[str] = None, 
+    target: Optional[str] = None, 
+    action: Optional[str] = None
+) -> Callable[[F], F]:
+    ...
 
 def trace_interaction(
     func: Optional[F] = None, 

@@ -31,13 +31,13 @@ import time
 configure_flow("my_flow.mmd")
 
 # 2. 添加装饰器
-@trace("Client", "PaymentService", "Process Payment")
+@trace(source="Client", target="PaymentService", action="Process Payment")
 def process_payment(amount):
     if check_balance(amount):
         return "Success"
     return "Failed"
 
-@trace("PaymentService", "Database", "Check Balance")
+@trace(source="PaymentService", target="Database", action="Check Balance")
 def check_balance(amount):
     return True
 

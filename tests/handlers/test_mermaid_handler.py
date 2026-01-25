@@ -1,8 +1,9 @@
 import logging
+from pathlib import Path
 from mermaid_trace.handlers.mermaid_handler import MermaidFileHandler
 from mermaid_trace.core.events import FlowEvent
 
-def test_handler_creation(tmp_path):
+def test_handler_creation(tmp_path: Path) -> None:
     log_file = tmp_path / "flow.mmd"
     handler = MermaidFileHandler(str(log_file), title="Test Flow")
     
@@ -12,7 +13,7 @@ def test_handler_creation(tmp_path):
     assert "title Test Flow" in content
     handler.close()
 
-def test_handler_emit(tmp_path):
+def test_handler_emit(tmp_path: Path) -> None:
     log_file = tmp_path / "flow.mmd"
     handler = MermaidFileHandler(str(log_file))
     
@@ -30,7 +31,7 @@ def test_handler_emit(tmp_path):
     content = log_file.read_text(encoding="utf-8")
     assert "A->>B: Msg" in content
 
-def test_handler_delay(tmp_path):
+def test_handler_delay(tmp_path: Path) -> None:
     log_file = tmp_path / "delayed.mmd"
     # delay=True
     handler = MermaidFileHandler(str(log_file), delay=True)
@@ -46,7 +47,7 @@ def test_handler_delay(tmp_path):
     
     handler.close()
 
-def test_handler_append_mode(tmp_path):
+def test_handler_append_mode(tmp_path: Path) -> None:
     log_file = tmp_path / "append.mmd"
     # Create initial file
     log_file.write_text("sequenceDiagram\n    title Old\n", encoding="utf-8")

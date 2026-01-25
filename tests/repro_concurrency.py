@@ -12,11 +12,11 @@ if os.path.exists(TEST_FILE):
 configure_flow(TEST_FILE)
 
 @trace
-async def worker(name: str, delay: float):
+async def worker(name: str, delay: float) -> str:
     await asyncio.sleep(delay)
     return f"{name} done"
 
-async def main():
+async def main() -> None:
     print("Starting concurrency test...")
     start_time = time.time()
     

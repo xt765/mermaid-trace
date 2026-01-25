@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI
 from mermaid_trace.integrations.fastapi import MermaidTraceMiddleware
 from httpx import AsyncClient, ASGITransport
+from typing import AsyncGenerator
 
 @pytest.fixture
 def app() -> FastAPI:
@@ -16,7 +17,7 @@ def app() -> FastAPI:
     return app
 
 @pytest.fixture
-async def client(app: FastAPI) -> AsyncClient:
+async def client(app: FastAPI) -> AsyncGenerator[AsyncClient, None]:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac

@@ -4,24 +4,25 @@ from fastapi.testclient import TestClient
 from mermaid_trace.integrations.fastapi import MermaidTraceMiddleware
 from mermaid_trace.core.context import LogContext
 from unittest.mock import patch, MagicMock
+from typing import Any
 
 app = FastAPI()
 app.add_middleware(MermaidTraceMiddleware, app_name="TestAPI")
 
 @app.get("/ok")
-async def ok_endpoint():
+async def ok_endpoint() -> dict[str, str]:
     # Verify context is set
     assert LogContext.current_participant() == "TestAPI"
     assert LogContext.current_trace_id() is not None
     return {"status": "ok"}
 
 @app.get("/error")
-async def error_endpoint():
+async def error_endpoint() -> None:
     raise ValueError("Test Error")
 
 client = TestClient(app)
 
-def test_fastapi_ok(caplog):
+def test_fastapi_ok(caplog: Any) -> None:
     resp = client.get("/ok", headers={"X-Source": "TestClient"})
     assert resp.status_code == 200
     
@@ -38,14 +39,14 @@ def test_fastapi_ok(caplog):
     assert resp_evt.is_return is True
     assert "200" in resp_evt.result
 
-def test_fastapi_trace_id_propagation(caplog):
+def test_fastapi_trace_id_propagation(caplog: Any) -> None:
     tid = "custom-trace-id-123"
     client.get("/ok", headers={"X-Trace-ID": tid})
     
     records = [r for r in caplog.records if hasattr(r, 'flow_event')]
     assert records[0].flow_event.trace_id == tid
 
-def test_fastapi_error(caplog):
+def test_fastapi_error(caplog: Any) -> None:
     with pytest.raises(ValueError):
         client.get("/error")
         
@@ -54,7 +55,7 @@ def test_fastapi_error(caplog):
     assert err_evt.is_error is True
     assert "Test Error" in err_evt.error_message
 
-def test_fastapi_missing_dependency():
+def test_fastapi_missing_dependency() -> None:
     # Simulate BaseHTTPMiddleware not being available (e.g. starlette not installed)
     # We need to reload the module or patch the class before init
     with patch("mermaid_trace.integrations.fastapi.BaseHTTPMiddleware", object):

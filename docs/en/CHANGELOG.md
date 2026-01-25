@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-01-26
+
+### Added
+- **Type Safety**: Full type annotations across the codebase (100% Mypy coverage). Added `watchdog` stubs and fixed generic types in decorators.
+- **Robustness**: Enhanced `cli` error handling and fixed syntax issues in `demo.py`.
+- **Documentation**: Added comprehensive English docstrings to core modules (`Context`, `Events`, `Decorators`, `Handler`).
+
+### Fixed
+- Fixed all linter errors (Ruff) including bare exceptions and redefinitions.
+- Resolved type instability in `trace_interaction` decorator return types.
+- Fixed invalid usage examples in README.md and README_CN.md.
+
 ## [0.2.1] - 2026-01-26
 
 ### Improved

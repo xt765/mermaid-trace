@@ -1,7 +1,7 @@
 from mermaid_trace.core.events import FlowEvent
 import time
 
-def test_flow_event_defaults():
+def test_flow_event_defaults() -> None:
     event = FlowEvent(
         source="A", target="B", action="Call", message="Msg", trace_id="123"
     )
@@ -12,7 +12,7 @@ def test_flow_event_defaults():
     assert isinstance(event.timestamp, float)
     assert event.timestamp <= time.time()
 
-def test_flow_event_error():
+def test_flow_event_error() -> None:
     event = FlowEvent(
         source="A", target="B", action="Call", message="Error", trace_id="123",
         is_error=True, error_message="Something went wrong"
