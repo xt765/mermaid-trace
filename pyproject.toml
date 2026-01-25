@@ -3,18 +3,20 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "logcapy"
-version = "0.1.0"
-description = "A robust logging capability library with AOP and context support."
+name = "mermaid-trace"
+version = "0.2.0"
+description = "Visualize your Python code execution flow as Mermaid Sequence Diagrams."
 readme = "README.md"
 requires-python = ">=3.8"
-license = "MIT"
-keywords = ["logging", "exception", "context", "asyncio", "aop"]
+license = { file = "LICENSE" }
+keywords = ["logging", "visualization", "mermaid", "sequence-diagram", "trace", "asyncio", "mermaid-trace"]
 authors = [
-  { name = "LogCapy Team", email = "team@logcapy.dev" },
+  { name = "MermaidTrace Team", email = "team@mermaidtrace.dev" },
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
@@ -23,28 +25,42 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
+  "Operating System :: OS Independent",
+  "Topic :: System :: Logging",
+  "Topic :: Software Development :: Debuggers",
 ]
 dependencies = [
     "typing-extensions>=4.0.0",
 ]
 
 [project.optional-dependencies]
-loguru = ["loguru>=0.7.0"]
-fastapi = ["fastapi", "uvicorn"]
-django = ["django>=4.0"]
-flask = ["flask>=2.0"]
-all = ["loguru", "fastapi", "django", "flask"]
+# Removed legacy integrations as they are not yet re-implemented for flow viz
+dev = ["pytest", "pytest-asyncio", "ruff", "mypy"]
 
 [project.urls]
-Documentation = "https://github.com/username/logcapy#readme"
-Issues = "https://github.com/username/logcapy/issues"
-Source = "https://github.com/username/logcapy"
+Documentation = "https://github.com/xt765/mermaid-trace#readme"
+Issues = "https://github.com/xt765/mermaid-trace/issues"
+Source = "https://github.com/xt765/mermaid-trace"
+
+[project.scripts]
+mermaid-trace = "mermaid_trace.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/logcapy"]
+packages = ["src/mermaid_trace"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/.venv",
+  "/.mypy_cache",
+  "/.pytest_cache",
+  "/htmlcov",
+  "/docs/build",
+  "/.coverage",
+  "/coverage.xml",
+]
 
 [tool.pytest.ini_options]
-addopts = "--cov=src/logcapy --cov-report=term-missing --cov-report=html"
+addopts = "--cov=src/mermaid_trace --cov-report=term-missing --cov-report=html --cov-report=xml"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 
@@ -54,4 +70,4 @@ target-version = "py38"
 
 [tool.mypy]
 strict = true
-files = ["src/logcapy"]
+files = ["src/mermaid_trace"]
