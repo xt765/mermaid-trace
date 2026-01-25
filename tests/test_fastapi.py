@@ -1,6 +1,5 @@
 import pytest
 import logging
-from typing import Any, Generator
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from mermaid_trace.integrations.fastapi import MermaidTraceMiddleware
