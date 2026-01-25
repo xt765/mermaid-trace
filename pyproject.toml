@@ -11,7 +11,7 @@ requires-python = ">=3.8"
 license = { file = "LICENSE" }
 keywords = ["logging", "visualization", "mermaid", "sequence-diagram", "trace", "asyncio", "mermaid-trace"]
 authors = [
-  { name = "MermaidTrace Team", email = "team@mermaidtrace.dev" },
+  { name = "xt765", email = "xt765@foxmail.com" },
 ]
 classifiers = [
   "Development Status :: 4 - Beta",

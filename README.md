@@ -6,10 +6,12 @@ MermaidTrace is a specialized logging tool that automatically generates [Mermaid
 
 ## ✨ Features
 
-- **Decorator-Driven**: Just add `@trace_interaction` to your functions.
+- **Decorator-Driven**: Just add `@trace` or `@trace_interaction` to your functions.
 - **Auto-Diagramming**: Generates `.mmd` files that can be viewed in VS Code, GitHub, or Mermaid Live Editor.
 - **Async Support**: Works seamlessly with `asyncio` coroutines.
-- **Zero Config**: Works out of the box with sensible defaults.
+- **Context Inference**: Automatically tracks nested calls and infers `source` participants using `contextvars`.
+- **FastAPI Integration**: Includes middleware for zero-config HTTP request tracing.
+- **CLI Tool**: Built-in viewer to preview diagrams in your browser.
 
 ## 🚀 Quick Start
 
@@ -19,23 +21,23 @@ MermaidTrace is a specialized logging tool that automatically generates [Mermaid
 pip install mermaid-trace
 ```
 
-### Usage
+### Basic Usage
 
 ```python
-from mermaid_trace import trace_interaction, configure_flow
+from mermaid_trace import trace, configure_flow
 import time
 
 # 1. Configure output
 configure_flow("my_flow.mmd")
 
 # 2. Add decorators
-@trace_interaction("Client", "PaymentService", "Process Payment")
+@trace("Client", "PaymentService", "Process Payment")
 def process_payment(amount):
     if check_balance(amount):
         return "Success"
     return "Failed"
 
-@trace_interaction("PaymentService", "Database", "Check Balance")
+@trace("PaymentService", "Database", "Check Balance")
 def check_balance(amount):
     return True
 
@@ -43,23 +45,52 @@ def check_balance(amount):
 process_payment(100)
 ```
 
-### Output (`my_flow.mmd`)
+### Nested Calls (Context Inference)
 
-```mermaid
-sequenceDiagram
-    title Log Flow
-    autonumber
-    Client->>PaymentService: Process Payment
-    PaymentService->>Database: Check Balance
-    Database-->>PaymentService: Return
-    PaymentService-->>Client: Return
+You don't need to specify `source` every time. MermaidTrace infers it from the current context.
+
+```python
+@trace(source="Client", target="API")
+def main():
+    # Inside here, current participant is "API"
+    service_call()
+
+@trace(target="Service") # source inferred as "API"
+def service_call():
+    pass
 ```
 
-## 🛠 Advanced
+### FastAPI Integration
 
-### Context Tracking (Coming Soon)
-MermaidTrace will soon support automatic `source` inference using ContextVars, so you won't need to manually specify the caller every time.
+```python
+from fastapi import FastAPI
+from mermaid_trace.integrations.fastapi import MermaidTraceMiddleware
 
-## License
+app = FastAPI()
+app.add_middleware(MermaidTraceMiddleware, app_name="MyAPI")
+
+@app.get("/")
+async def root():
+    return {"message": "Hello World"}
+```
+
+### CLI Viewer
+
+Visualize your generated `.mmd` files instantly:
+
+```bash
+mermaid-trace serve my_flow.mmd
+```
+
+## 📂 Documentation
+
+- [English Documentation](docs/en/README.md)
+- [中文文档](README_CN.md)
+
+## 🤝 Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](docs/en/CONTRIBUTING.md) for details.
+
+## 📄 License
 
 MIT
