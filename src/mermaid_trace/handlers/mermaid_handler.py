@@ -1,6 +1,5 @@
 import logging
 from typing import Optional
-from pathlib import Path
 from ..core.events import FlowEvent
 
 class MermaidFileHandler(logging.Handler):

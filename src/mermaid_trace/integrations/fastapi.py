@@ -1,3 +1,5 @@
+from typing import Any
+
 try:
     from fastapi import Request, Response
     from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -10,7 +12,6 @@ except ImportError:
     Response = Any # type: ignore
     RequestResponseEndpoint = Any # type: ignore
 
-from typing import Any, Callable, Awaitable
 from ..core.events import FlowEvent
 from ..core.context import LogContext
 from ..core.decorators import get_flow_logger
