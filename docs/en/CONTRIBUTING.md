@@ -29,7 +29,12 @@ The following is a set of guidelines for contributing to MermaidTrace and its pa
 
 4.  **Run tests**:
     ```bash
+    # Run all tests
     pytest
+
+    # Run tests across multiple Python versions (requires tox)
+    pip install tox
+    tox
     ```
 
 ## Styleguides
@@ -38,12 +43,17 @@ The following is a set of guidelines for contributing to MermaidTrace and its pa
 
 - All Python code is linted with `ruff`.
 - All Python code is type-checked with `mypy`.
+- We use `hatch` for build management and `hatch-vcs` for dynamic versioning.
 
 To run checks locally:
 
 ```bash
+# Using tox (recommended)
+tox -e lint
+
+# Or manually
 ruff check src tests
-mypy src
+mypy src/mermaid_trace
 ```
 
 ## Pull Requests

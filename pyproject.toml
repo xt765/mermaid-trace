@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "mermaid-trace"
-version = "0.3.1"
+dynamic = ["version"]
 description = "Visualize your Python code execution flow as Mermaid Sequence Diagrams."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -60,8 +60,12 @@ Source = "https://github.com/xt765/mermaid-trace"
 [project.scripts]
 mermaid-trace = "mermaid_trace.cli:main"
 
+[tool.hatch.version]
+source = "vcs"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/mermaid_trace"]
+artifacts = ["*.typed", "*.mmd"]
 
 [tool.hatch.build.targets.sdist]
 exclude = [

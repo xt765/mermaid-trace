@@ -29,7 +29,12 @@
 
 4.  **运行测试**：
     ```bash
+    # 运行所有测试
     pytest
+
+    # 跨多个 Python 版本运行测试 (需要 tox)
+    pip install tox
+    tox
     ```
 
 ## 代码风格指南
@@ -38,12 +43,17 @@
 
 - 所有 Python 代码均使用 `ruff` 进行 lint 检查。
 - 所有 Python 代码均使用 `mypy` 进行类型检查。
+- 我们使用 `hatch` 进行构建管理，使用 `hatch-vcs` 进行动态版本控制。
 
 要在本地运行检查：
 
 ```bash
+# 使用 tox (推荐)
+tox -e lint
+
+# 或者手动运行
 ruff check src tests
-mypy src
+mypy src/mermaid_trace
 ```
 
 ## Pull Request 流程

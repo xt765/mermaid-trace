@@ -35,6 +35,7 @@ class MermaidFileHandler(logging.FileHandler):
         # We need to write the "sequenceDiagram" preamble ONLY if:
         # 1. We are overwriting the file (mode='w').
         # 2. We are appending (mode='a'), but the file doesn't exist or is empty.
+        # This prevents invalid Mermaid files (e.g., multiple "sequenceDiagram" lines).
         should_write_header = False
         if mode == 'w':
             should_write_header = True
@@ -55,12 +56,15 @@ class MermaidFileHandler(logging.FileHandler):
         Writes the initial Mermaid syntax lines.
         
         This setup is required for Mermaid JS or Live Editor to render the diagram.
+        It defines the diagram type (sequenceDiagram), title, and enables autonumbering.
         """
         # We use the stream directly if available, or open momentarily if delayed
         if self.stream:
             self.stream.write("sequenceDiagram\n")
             self.stream.write(f"    title {self.title}\n")
             self.stream.write("    autonumber\n")
+            # Flush ensures the header is written to disk immediately, 
+            # so it appears even if the program crashes right after.
             self.flush()
         else:
             # Handling 'delay=True' case:
@@ -78,8 +82,9 @@ class MermaidFileHandler(logging.FileHandler):
         Optimization:
         - Checks for `flow_event` attribute first. This allows this handler 
           to be attached to the root logger without processing irrelevant system logs.
+          It acts as a high-performance filter before formatting.
         - Delegates the actual writing to `super().emit()`, which handles 
-          thread locking and stream flushing.
+          thread locking and stream flushing safely.
         """
         # Only process records that contain our structured FlowEvent data
         if hasattr(record, 'flow_event'):

@@ -85,13 +85,16 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
         # 4. Set Context and Process Request
         # We set the current participant to the app name.
         # `ascope` ensures this context applies to all code running within `call_next`.
+        # This includes route handlers, dependencies, and other middlewares called after this one.
         async with LogContext.ascope({"participant": self.app_name, "trace_id": trace_id}):
             start_time = time.time()
             try:
                 # Pass control to the application
+                # This executes the actual route logic
                 response = await call_next(request)
                 
                 # 5. Log Response (App -> Source)
+                # Calculate execution duration for the response label
                 duration = (time.time() - start_time) * 1000
                 resp_event = FlowEvent(
                     source=self.app_name,
@@ -108,6 +111,8 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
             except Exception as e:
                 # 6. Log Error (App --x Source)
                 # This captures unhandled exceptions that bubble up to the middleware
+                # Note: FastAPI's ExceptionHandlers might catch this before it reaches here.
+                # If so, you might see a successful return with 500 status instead.
                 err_event = FlowEvent(
                     source=self.app_name,
                     target=source,

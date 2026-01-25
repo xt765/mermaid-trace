@@ -12,25 +12,37 @@ Decorator to trace function execution. Can be used with or without arguments.
 def my_func(): ...
 
 # Detailed usage
-@trace(source="Client", target="Server", action="Login")
+@trace(source="Client", target="Server", action="Login", capture_args=False)
 def login(username): ...
 ```
 
 **Arguments:**
 - `source` (Optional[str]): The caller participant name. If `None`, inferred from `contextvars`.
 - `target` (Optional[str]): The callee participant name. If `None`, inferred from class name (if method) or module name.
+- `name` (Optional[str]): Alias for `target`. Explicitly sets the participant name.
 - `action` (Optional[str]): Description of the interaction. If `None`, defaults to formatted function name (e.g., `process_payment` -> "Process Payment").
+- `capture_args` (bool): Whether to log arguments and return values. Defaults to `True`. Set to `False` for sensitive data.
+- `max_arg_length` (int): Maximum length of string representation for arguments. Defaults to 50.
+- `max_arg_depth` (int): Maximum depth for nested structures in argument representation. Defaults to 1.
 
 ### `configure_flow`
 
 Configures the global logger to output to a Mermaid file. This should be called once at application startup.
 
 ```python
-def configure_flow(output_file: str = "flow.mmd") -> logging.Logger
+def configure_flow(
+    output_file: str = "flow.mmd",
+    handlers: Optional[List[logging.Handler]] = None,
+    append: bool = False,
+    async_mode: bool = False
+) -> logging.Logger
 ```
 
 **Arguments:**
 - `output_file` (str): Path to the `.mmd` output file. Defaults to "flow.mmd".
+- `handlers` (List[logging.Handler]): Optional list of custom logging handlers. If provided, `output_file` is ignored unless you include `MermaidFileHandler` manually.
+- `append` (bool): If `True`, adds new handlers without removing existing ones. Defaults to `False`.
+- `async_mode` (bool): If `True`, uses a non-blocking background thread for logging (QueueHandler). Recommended for production. Defaults to `False`.
 
 ### `LogContext`
 

@@ -90,7 +90,7 @@ mermaid-trace serve my_flow.mmd
 
 ## 📂 Documentation
 
-- [English Documentation](docs/en/README.md)
+- [English Documentation](docs/en/USER_GUIDE.md)
 - [中文文档](README_CN.md)
 
 ## 🤝 Contributing

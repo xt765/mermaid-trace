@@ -21,7 +21,6 @@ def test_trace_sync_basic(caplog: Any) -> None:
     
     assert req.flow_event.source == "User"
     assert req.flow_event.target == "System"
-    # Current implementation captures args as values in params string
     assert "1" in req.flow_event.params
     
     assert resp.flow_event.is_return is True
@@ -67,15 +66,12 @@ def test_resolve_target_class_method() -> None:
 
 def test_resolve_target_module_fallback() -> None:
     def my_module_func() -> None: pass
-    # When no args, should fallback to module name
-    # We mock inspect.getmodule to return something
     with patch("inspect.getmodule") as mock_mod:
         mock_mod.return_value.__name__ = "my.package.module"
         res = _resolve_target(my_module_func, (), None)
         assert res == "module"
 
 def test_resolve_target_primitive_first_arg() -> None:
-    # If first arg is primitive, it shouldn't be treated as 'self'
     def func(x: Any) -> None: pass
     with patch("inspect.getmodule") as mock_mod:
         mock_mod.return_value.__name__ = "mod"
@@ -83,12 +79,71 @@ def test_resolve_target_primitive_first_arg() -> None:
         assert res == "mod"
 
 def test_format_args_error_resilience() -> None:
-    # Test that if repr raises, we don't crash
     bad_obj = MagicMock()
-    # Need to patch reprlib.repr because _safe_repr uses it
-    with patch("reprlib.repr", side_effect=Exception("Repr fail")):
+    # Patch Repr.repr instead of reprlib.repr
+    with patch("reprlib.Repr.repr", side_effect=Exception("Repr fail")):
         res = _format_args((bad_obj,), {})
         assert "<unrepresentable>" in res
+
+def test_trace_async_error(caplog: Any) -> None:
+    @trace(source="A", target="B")
+    async def fail_async() -> None:
+        raise ValueError("AsyncBoom")
+        
+    with pytest.raises(ValueError):
+        asyncio.run(fail_async())
+        
+    assert len(caplog.records) >= 2
+    err_record = caplog.records[1]
+    assert err_record.flow_event.is_error is True
+    assert "AsyncBoom" in err_record.flow_event.error_message
+
+# --- New Features Tests ---
+
+def test_capture_args_false(caplog: Any) -> None:
+    @trace(capture_args=False)
+    def secret_func(pwd: str) -> str:
+        return "hidden"
+        
+    secret_func("secret")
+    
+    req = caplog.records[0]
+    resp = caplog.records[1]
+    
+    assert req.flow_event.params == ""
+    assert resp.flow_event.result == ""
+    assert "secret" not in str(req.flow_event)
+    assert "hidden" not in str(resp.flow_event)
+
+def test_max_arg_length(caplog: Any) -> None:
+    @trace(max_arg_length=5)
+    def long_func(arg: str) -> str:
+        return arg
+        
+    long_func("1234567890")
+    
+    req = caplog.records[0]
+    # "1234567890" -> "12345..." (actually reprlib might add quotes)
+    # _safe_repr uses reprlib.repr which limits length.
+    # repr('1234567890') is "'1234567890'" (len 12)
+    # max_len=5 -> "'123..." + "..."
+    
+    assert "..." in req.flow_event.params
+    assert len(req.flow_event.params) < 20 # Conservative check
+
+def test_explicit_name_alias(caplog: Any) -> None:
+    @trace(name="MyAlias")
+    def func(): pass
+    
+    func()
+    assert caplog.records[0].flow_event.target == "MyAlias"
+
+def test_explicit_action(caplog: Any) -> None:
+    @trace(action="CustomAction")
+    def func(): pass
+    
+    func()
+    assert caplog.records[0].flow_event.action == "CustomAction"
 
 # --- Async Tests ---
 

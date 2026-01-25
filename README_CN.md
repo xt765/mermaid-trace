@@ -90,8 +90,8 @@ mermaid-trace serve my_flow.mmd
 
 ## 📂 文档
 
-- [英文文档](docs/en/README.md)
-- [中文文档](README_CN.md)
+- [英文文档](docs/en/USER_GUIDE.md)
+- [中文文档](docs/zh/USER_GUIDE.md)
 
 ## 🤝 贡献
 

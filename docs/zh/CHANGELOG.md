@@ -5,6 +5,19 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/)（语义化版本控制）。
 
+## [0.4.0] - 2026-01-26
+
+### 新增
+- **异步模式**: 在 `configure_flow` 中引入了 `async_mode=True`，将日志写入操作卸载到后台线程，消除了主应用程序循环中的 I/O 阻塞。
+- **数据隐私**: 为 `@trace` 添加了 `capture_args=False`，以防止敏感参数被记录。
+- **参数截断**: 为 `@trace` 添加了 `max_arg_length` 和 `max_arg_depth`，以控制记录的数据结构的大小。
+- **显式命名**: 为 `@trace` 添加了 `name`（或 `target` 别名）参数，用于显式设置参与者名称，覆盖自动推断。
+- **灵活配置**: 更新了 `configure_flow` 以接受自定义 Handler 列表和 `append` 标志，允许更好地与现有日志设置集成。
+
+### 改进
+- **测试覆盖率**: 实现了 >90% 的测试覆盖率，拥有覆盖单元、集成和并发场景的全面新测试套件。
+- **PyPI 合规性**: 切换到通过 `hatch-vcs` 进行动态版本控制，并改进了包元数据和工件包含。
+
 ## [0.3.1] - 2026-01-26
 
 ### 修复
@@ -48,7 +61,7 @@ MermaidTrace 已从通用的日志包装器转型为专门的 **执行流可视�
 - **上下文推断**：使用 `contextvars` 自动检测 `source`（源）参与者，无需手动连线即可实现嵌套调用可视化。
 - **Mermaid 处理器**：专门的日志处理器，实时写入 `.mmd` 文件。
 - **CLI 工具**：添加了 `mermaid-trace serve <file.mmd>` 命令，可在浏览器中预览生成的图表。
-- **FastAPI 中间件**：`MermaidTraceMiddleware`，用于零配置 HTTP 请求追踪。
+- **FastAPI 中间件**：`MermaidTraceMiddleware` for zero-config HTTP request tracing.
 - **数据捕获**：支持在图表中捕获并显示函数参数和返回值。
 
 ### 移除

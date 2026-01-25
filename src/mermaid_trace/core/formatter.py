@@ -23,7 +23,7 @@ class MermaidFormatter(logging.Formatter):
         """
         Converts a FlowEvent into a Mermaid syntax string.
         """
-        # Sanitize participant names
+        # Sanitize participant names to avoid syntax errors in Mermaid
         src = self._sanitize(event.source)
         tgt = self._sanitize(event.target)
         
@@ -33,26 +33,34 @@ class MermaidFormatter(logging.Formatter):
         # --x : Dotted line with cross (error)
         arrow = "-->>" if event.is_return else "->>"
         
+        msg = ""
         if event.is_error:
             arrow = "--x"
             msg = f"Error: {event.error_message}"
         elif event.is_return:
+            # For returns, we usually show the return value or just "Return"
             msg = f"Return: {event.result}" if event.result else "Return"
         else:
+            # For calls, we show Action(Params) or just Action
             msg = f"{event.message}({event.params})" if event.params else event.message
             
         # Optional: Add note or group if trace_id changes (not implemented in single line format)
         # For now, we just output the interaction.
         
-        # Escape message for Mermaid safety
+        # Escape message for Mermaid safety (e.g. replacing newlines)
         msg = self._escape_message(msg)
         
+        # Format: Source->>Target: Message
         return f"{src}{arrow}{tgt}: {msg}"
 
     def _sanitize(self, name: str) -> str:
         """
         Sanitizes participant names to be valid Mermaid identifiers.
         Allows alphanumeric and underscores. Replaces others.
+        
+        Mermaid doesn't like spaces or special characters in participant aliases
+        unless they are quoted (which we are not doing here for simplicity),
+        so we replace them with underscores.
         """
         # Replace any non-alphanumeric character (except underscore) with underscore
         clean_name = re.sub(r'[^a-zA-Z0-9_]', '_', name)

@@ -12,25 +12,37 @@
 def my_func(): ...
 
 # 详细用法
-@trace(source="Client", target="Server", action="Login")
+@trace(source="Client", target="Server", action="Login", capture_args=False)
 def login(username): ...
 ```
 
 **参数：**
 - `source` (Optional[str]): 调用方参与者名称。如果为 `None`，则从 `contextvars` 推断。
 - `target` (Optional[str]): 被调用方参与者名称。如果为 `None`，则从类名（如果是方法）或模块名推断。
+- `name` (Optional[str]): `target` 的别名。显式设置参与者名称。
 - `action` (Optional[str]): 交互描述。如果为 `None`，默认为格式化后的函数名（例如 `process_payment` -> "Process Payment"）。
+- `capture_args` (bool): 是否记录参数和返回值。默认为 `True`。对于敏感数据可设置为 `False`。
+- `max_arg_length` (int): 参数字符串表示的最大长度。默认为 50。
+- `max_arg_depth` (int): 参数嵌套结构表示的最大深度。默认为 1。
 
 ### `configure_flow`
 
 配置全局日志记录器以输出到 Mermaid 文件。应在应用程序启动时调用一次。
 
 ```python
-def configure_flow(output_file: str = "flow.mmd") -> logging.Logger
+def configure_flow(
+    output_file: str = "flow.mmd",
+    handlers: Optional[List[logging.Handler]] = None,
+    append: bool = False,
+    async_mode: bool = False
+) -> logging.Logger
 ```
 
 **参数：**
 - `output_file` (str): `.mmd` 输出文件的路径。默认为 "flow.mmd"。
+- `handlers` (List[logging.Handler]): 可选的自定义日志处理器列表。如果提供，`output_file` 将被忽略，除非您手动包含了 `MermaidFileHandler`。
+- `append` (bool): 如果为 `True`，则添加新的处理器而不移除现有的。默认为 `False`。
+- `async_mode` (bool): 如果为 `True`，使用非阻塞后台线程进行日志记录 (QueueHandler)。推荐用于生产环境。默认为 `False`。
 
 ### `LogContext`
 

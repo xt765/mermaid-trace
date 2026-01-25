@@ -1,3 +1,32 @@
+# 文件: src/mermaid_trace/core/decorators.py
+
+## 概览
+本文件包含核心的装饰器逻辑 (`trace` / `trace_interaction`)。这些装饰器负责拦截函数调用，记录“开始调用”事件，执行函数，然后记录“返回”或“错误”事件。
+
+## 核心功能分析
+
+### `_resolve_target` (目标解析)
+这是一个关键的辅助函数，用于确定时序图中的参与者名称（Target）。它使用启发式算法：
+1.  **Override**: 如果用户在装饰器中显式指定了 `target` 或 `name`，优先级最高。
+2.  **Instance Method**: 如果第一个参数包含 `__class__` 属性（通常是 `self`），则使用类名。
+3.  **Class Method**: 如果第一个参数是类型（`cls`），则使用类名。
+4.  **Module Function**: 如果都不是，则回退到定义该函数的模块名。
+
+### 上下文传播 (Context Propagation)
+装饰器不仅记录日志，还负责维护调用链的上下文。
+-   **Step 1**: 它从 `LogContext` 获取当前的 `source`（即谁调用了我）。
+-   **Step 2**: 记录 `Source -> Target` 的调用日志。
+-   **Step 3**: 使用 `LogContext.scope` 将当前上下文更新为 `participant = Target`。
+-   **Step 4**: 执行实际函数。此时，函数内部的任何子调用都会看到 `source` 是当前的 `Target`，从而正确绘制出下一级箭头。
+
+### 参数捕获与截断
+为了防止日志文件过大或包含敏感信息，装饰器支持：
+-   `capture_args=False`: 完全关闭参数记录。
+-   `_safe_repr`: 使用 `reprlib` 对长字符串和深层嵌套对象进行截断，确保生成的日志既有用又安全。
+
+## 源代码与中文注释
+
+```python
 import functools
 import logging
 import inspect
@@ -9,22 +38,22 @@ from .context import LogContext
 
 FLOW_LOGGER_NAME = "mermaid_trace.flow"
 
-# Define generic type variable for the decorated function
+# 为被装饰的函数定义泛型类型变量
 F = TypeVar("F", bound=Callable[..., Any])
 
 def get_flow_logger() -> logging.Logger:
-    """Returns the dedicated logger for flow events."""
+    """返回流程事件的专用日志记录器。"""
     return logging.getLogger(FLOW_LOGGER_NAME)
 
 def _safe_repr(obj: Any, max_len: int = 50, max_depth: int = 1) -> str:
     """
-    Safely creates a string representation of an object.
+    安全地创建对象的字符串表示形式。
     
-    Prevents massive log files by truncating long strings/objects 
-    and handling exceptions during __repr__ calls (e.g. strict objects).
+    通过截断长字符串/对象并在 __repr__ 调用（例如严格对象）期间处理异常，
+    防止产生巨大的日志文件。
     """
     try:
-        # Create a custom repr object to control depth and length
+        # 创建自定义 repr 对象以控制深度和长度
         a_repr = reprlib.Repr()
         a_repr.maxstring = max_len
         a_repr.maxother = max_len
@@ -45,8 +74,8 @@ def _format_args(
     max_arg_depth: int = 1
 ) -> str:
     """
-    Formats function arguments into a single string "arg1, arg2, k=v".
-    Used for the arrow label in the diagram.
+    将函数参数格式化为单个字符串 "arg1, arg2, k=v"。
+    用于图表中的箭头标签。
     """
     if not capture_args:
         return ""
@@ -63,32 +92,32 @@ def _format_args(
 
 def _resolve_target(func: Callable[..., Any], args: Tuple[Any, ...], target_override: Optional[str]) -> str:
     """
-    Determines the name of the participant (Target) for the diagram.
+    确定图表中参与者（目标）的名称。
     
-    Resolution Priority:
-    1. **Override**: If the user explicitly provided `target="Name"`, use it.
-    2. **Instance Method**: If the first arg looks like `self` (has __class__), 
-       use the class name.
-    3. **Class Method**: If the first arg is a type (cls), use the class name.
-    4. **Module Function**: Fallback to the name of the module containing the function.
-    5. **Fallback**: "Unknown".
+    解析优先级:
+    1. **覆盖**: 如果用户显式提供了 `target="Name"`，使用它。
+    2. **实例方法**: 如果第一个参数看起来像 `self`（有 __class__），
+       使用类名。
+    3. **类方法**: 如果第一个参数是类型 (cls)，使用类名。
+    4. **模块函数**: 回退到包含该函数的模块名称。
+    5. **回退**: "Unknown"。
     """
     if target_override:
         return target_override
         
-    # Heuristic: If it's a method call, args[0] is usually 'self'.
+    # 启发式: 如果是方法调用，args[0] 通常是 'self'。
     if args:
         first_arg = args[0]
-        # Check if it looks like a class instance
-        # We check hasattr(__class__) to distinguish objects from primitives/containers broadly,
-        # ensuring we don't mislabel a plain list passed as first arg to a function as a "List" participant.
+        # 检查它是否看起来像类实例
+        # 我们检查 hasattr(__class__) 来广泛区分对象和基元/容器，
+        # 确保我们不会将传递给函数的普通列表错误标记为 "List" 参与者。
         if hasattr(first_arg, "__class__") and not isinstance(first_arg, (str, int, float, bool, list, dict, type)):
              return str(first_arg.__class__.__name__)
-        # Check if it looks like a class (cls) - e.g. @classmethod
+        # 检查它是否看起来像类 (cls) - 例如 @classmethod
         if isinstance(first_arg, type):
              return first_arg.__name__
 
-    # Fallback to module name for standalone functions
+    # 对于独立函数，回退到模块名
     module = inspect.getmodule(func)
     if module:
         return module.__name__.split(".")[-1]
@@ -101,15 +130,15 @@ def _log_interaction(logger: logging.Logger,
                      params: str, 
                      trace_id: str) -> None:
     """
-    Logs the 'Call' event (Start of function).
-    Arrow: source -> target
+    记录 'Call' 事件（函数开始）。
+    箭头: source -> target
     """
     req_event = FlowEvent(
         source=source, target=target, 
         action=action, message=action,
         params=params, trace_id=trace_id
     )
-    # The 'extra' dict is critical: the Handler will pick this up to format the Mermaid line
+    # 'extra' 字典至关重要: Handler 将获取它来格式化 Mermaid 行
     logger.info(f"{source}->{target}: {action}", extra={"flow_event": req_event})
 
 def _log_return(logger: logging.Logger, 
@@ -122,11 +151,11 @@ def _log_return(logger: logging.Logger,
                 max_arg_length: int = 50,
                 max_arg_depth: int = 1) -> None:
     """
-    Logs the 'Return' event (End of function).
-    Arrow: target --> source (Dotted line return)
+    记录 'Return' 事件（函数结束）。
+    箭头: target --> source (虚线返回)
     
-    Note: 'source' here is the original caller, 'target' is the callee.
-    So the return arrow goes from target back to source.
+    注意: 这里的 'source' 是原始调用者，'target' 是被调用者。
+    所以返回箭头从 target 回到 source。
     """
     result_str = ""
     if capture_args:
@@ -146,8 +175,8 @@ def _log_error(logger: logging.Logger,
                error: Exception, 
                trace_id: str) -> None:
     """
-    Logs an 'Error' event if the function raises an exception.
-    Arrow: target -x source (Error return)
+    如果函数引发异常，则记录 'Error' 事件。
+    箭头: target -x source (错误返回)
     """
     err_event = FlowEvent(
         source=target, target=source, action=action, 
@@ -185,31 +214,31 @@ def trace_interaction(
     max_arg_depth: int = 1
 ) -> Union[F, Callable[[F], F]]:
     """
-    Main Decorator for tracing function execution in Mermaid diagrams.
+    用于在 Mermaid 图表中追踪函数执行的主要装饰器。
     
-    It supports two modes of operation:
-    1. **Simple**: `@trace` (No arguments)
-    2. **Configured**: `@trace(action="Login", target="AuthService")`
+    它支持两种操作模式:
+    1. **简单**: `@trace` (无参数)
+    2. **配置**: `@trace(action="Login", target="AuthService")`
     
-    Args:
-        func: The function being decorated (automatically passed in simple mode).
-        source: Explicit name of the caller participant (rarely used, usually inferred from Context).
-        target: Explicit name of the callee participant (overrides automatic resolution).
-        name: Alias for 'target' (for clearer API usage).
-        action: Label for the arrow (defaults to function name).
-        capture_args: Whether to include arguments and return values in the log. Default True.
-        max_arg_length: Maximum string length for argument/result representation. Default 50.
-        max_arg_depth: Maximum recursion depth for argument/result representation. Default 1.
+    参数:
+        func: 被装饰的函数（在简单模式下自动传入）。
+        source: 调用方参与者的显式名称（很少使用，通常从 Context 推断）。
+        target: 被调用方参与者的显式名称（覆盖自动解析）。
+        name: 'target' 的别名（为了更清晰的 API 使用）。
+        action: 箭头的标签（默认为函数名）。
+        capture_args: 是否在日志中包含参数和返回值。默认为 True。
+        max_arg_length: 参数/结果表示的最大字符串长度。默认为 50。
+        max_arg_depth: 参数/结果表示的最大递归深度。默认为 1。
     """
     
-    # Handle alias
+    # 处理别名
     final_target = target or name
     
-    # Mode 1: @trace used without parentheses
+    # 模式 1: @trace 不带括号使用
     if func is not None and callable(func):
         return _create_decorator(func, source, final_target, action, capture_args, max_arg_length, max_arg_depth)
         
-    # Mode 2: @trace(...) used with arguments -> returns a factory
+    # 模式 2: @trace(...) 带参数使用 -> 返回工厂
     def factory(f: F) -> F:
         return _create_decorator(f, source, final_target, action, capture_args, max_arg_length, max_arg_depth)
     return factory
@@ -224,56 +253,48 @@ def _create_decorator(
     max_arg_depth: int
 ) -> F:
     """
-    Constructs the actual wrapper function.
-    Handles both synchronous and asynchronous functions.
+    构造实际的包装器函数。
+    处理同步和异步函数。
     
-    This function separates the wrapper creation logic from the argument parsing logic
-    in `trace_interaction`, making the code cleaner and easier to test.
+    此函数将包装器创建逻辑与 `trace_interaction` 中的参数解析逻辑分离，
+    使代码更清晰且更易于测试。
     """
     
-    # Pre-calculate static metadata to save time at runtime
+    # 预计算静态元数据以节省运行时时间
     if action is None:
-        # Default action name is the function name, converted to Title Case
         action = func.__name__.replace("_", " ").title()
 
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        """Sync function wrapper."""
-        # 1. Resolve Context
-        # 'source' is who called us (from Context). 'target' is who we are (resolved from self/cls).
-        # If 'source' is not explicitly provided, we look up the 'participant' set by the caller.
+        """同步函数包装器。"""
+        # 1. 解析上下文
+        # 'source' 是谁调用了我们（来自 Context）。'target' 是我们是谁（从 self/cls 解析）。
         current_source = source or LogContext.current_participant()
         trace_id = LogContext.current_trace_id()
         current_target = _resolve_target(func, args, target)
         
         logger = get_flow_logger()
-        # Format arguments for the diagram arrow label
         params_str = _format_args(args, kwargs, capture_args, max_arg_length, max_arg_depth)
         
-        # 2. Log Request (Start of block)
-        # Logs the initial "Call" arrow (Source -> Target)
+        # 2. 记录请求（代码块开始）
         _log_interaction(logger, current_source, current_target, action, params_str, trace_id)
         
-        # 3. Execute with New Context
-        # We push 'current_target' as the NEW 'participant' (source) for any internal calls.
-        # This builds the chain: A -> B, then inside B, B becomes the source for C (B -> C).
+        # 3. 使用新上下文执行
+        # 我们将 'current_target' 推入为任何内部调用的新 'participant' (source)。
         with LogContext.scope({"participant": current_target, "trace_id": trace_id}):
             try:
                 result = func(*args, **kwargs)
-                # 4. Log Success Return
-                # Logs the "Return" arrow (Target --> Source)
+                # 4. 记录成功返回
                 _log_return(logger, current_source, current_target, action, result, trace_id, capture_args, max_arg_length, max_arg_depth)
                 return result
             except Exception as e:
-                # 5. Log Error Return
-                # Logs the "Error" arrow (Target --x Source)
+                # 5. 记录错误返回
                 _log_error(logger, current_source, current_target, action, e, trace_id)
                 raise
 
     @functools.wraps(func)
     async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-        """Async function wrapper (coroutine)."""
-        # 1. Resolve Context (Same as sync)
+        """异步函数包装器（协程）。"""
         current_source = source or LogContext.current_participant()
         trace_id = LogContext.current_trace_id()
         current_target = _resolve_target(func, args, target)
@@ -281,27 +302,24 @@ def _create_decorator(
         logger = get_flow_logger()
         params_str = _format_args(args, kwargs, capture_args, max_arg_length, max_arg_depth)
         
-        # 2. Log Request
+        # 2. 记录请求（代码块开始）
         _log_interaction(logger, current_source, current_target, action, params_str, trace_id)
         
-        # 3. Execute with New Context using 'ascope'
-        # Use async context manager (ascope) to ensure context propagates correctly across awaits.
-        # This is critical for asyncio: context must be preserved even if the task yields control.
+        # 使用异步上下文管理器 (ascope) 确保上下文跨 await 正确传播
         async with LogContext.ascope({"participant": current_target, "trace_id": trace_id}):
             try:
                 result = await func(*args, **kwargs)
-                # 4. Log Success Return
                 _log_return(logger, current_source, current_target, action, result, trace_id, capture_args, max_arg_length, max_arg_depth)
                 return result
             except Exception as e:
-                # 5. Log Error Return
                 _log_error(logger, current_source, current_target, action, e, trace_id)
                 raise
 
-    # Detect if the wrapped function is a coroutine to choose the right wrapper
+    # 检测被包装的函数是否为协程，以选择正确的包装器
     if inspect.iscoroutinefunction(func):
         return cast(F, async_wrapper)
     return cast(F, wrapper)
 
-# Alias for easy import
+# 方便导入的别名
 trace = trace_interaction
+```

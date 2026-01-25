@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-01-26
+
+### Added
+- **Async Mode**: Introduced `async_mode=True` in `configure_flow` to offload log writing to a background thread, eliminating I/O blocking in the main application loop.
+- **Data Privacy**: Added `capture_args=False` to `@trace` to prevent sensitive arguments from being logged.
+- **Argument Truncation**: Added `max_arg_length` and `max_arg_depth` to `@trace` to control the size of logged data structures.
+- **Explicit Naming**: Added `name` (or `target` alias) parameter to `@trace` for explicitly setting the participant name, overriding automatic inference.
+- **Flexible Configuration**: Updated `configure_flow` to accept a list of custom handlers and an `append` flag, allowing better integration with existing logging setups.
+
+### Improved
+- **Test Coverage**: Achieved >90% test coverage with a comprehensive new test suite covering unit, integration, and concurrency scenarios.
+- **PyPI Compliance**: Switched to dynamic versioning via `hatch-vcs` and improved package metadata and artifact inclusion.
+
 ## [0.3.1] - 2026-01-26
 
 ### Fixed

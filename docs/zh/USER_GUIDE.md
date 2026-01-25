@@ -41,6 +41,47 @@ MermaidTrace 使用 Python 的 `contextvars` 来追踪“当前参与者”。
 
 这意味着通常您只需要在 *入口点*（第一个函数）设置 `source`。
 
+## 高级配置
+
+### 异步模式 (性能优化)
+对于高吞吐量的生产环境，请启用 `async_mode` 将文件写入操作卸载到后台线程。这确保了您的应用程序主线程永远不会被磁盘 I/O 阻塞。
+
+```python
+configure_flow("flow.mmd", async_mode=True)
+```
+
+### 数据捕获控制
+您可以控制如何记录函数参数和返回值，以保持图表整洁并保护敏感数据。
+
+```python
+# 隐藏敏感数据
+@trace(capture_args=False)
+def login(password):
+    pass
+
+# 截断长字符串 (默认: 50 字符)
+@trace(max_arg_length=10)
+def process_large_data(data):
+    pass
+```
+
+### 显式命名
+如果自动推断的类名/函数名不是您想要的，您可以显式命名参与者。
+
+```python
+@trace(name="AuthService")  # 图表中将显示 "AuthService"
+def login():
+    pass
+```
+
+### 灵活的 Handler 配置
+您可以将 MermaidTrace 添加到现有的日志设置中，或者追加多个 Handler。
+
+```python
+# 追加到现有的 Handler，而不是清除它们
+configure_flow("flow.mmd", append=True)
+```
+
 ## CLI 查看器
 
 要查看您的图表，请使用 CLI：

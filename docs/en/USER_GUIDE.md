@@ -41,6 +41,47 @@ MermaidTrace uses Python's `contextvars` to track the "Current Participant".
 
 This means you usually only need to set the `source` on the *entry point* (the first function).
 
+## Advanced Configuration
+
+### Async Mode (Performance)
+For high-throughput production environments, enable `async_mode` to offload file writing to a background thread. This ensures your application's main thread is never blocked by disk I/O.
+
+```python
+configure_flow("flow.mmd", async_mode=True)
+```
+
+### Data Capture Control
+You can control how function arguments and return values are recorded to keep diagrams clean and secure.
+
+```python
+# Hide sensitive data
+@trace(capture_args=False)
+def login(password):
+    pass
+
+# Truncate long strings (default: 50 chars)
+@trace(max_arg_length=10)
+def process_large_data(data):
+    pass
+```
+
+### Explicit Naming
+If the automatic class/function name inference isn't what you want, you can explicitly name the participant.
+
+```python
+@trace(name="AuthService")  # "AuthService" will appear in the diagram
+def login():
+    pass
+```
+
+### Flexible Handler Configuration
+You can add MermaidTrace to an existing logging setup or append multiple handlers.
+
+```python
+# Append to existing handlers instead of clearing them
+configure_flow("flow.mmd", append=True)
+```
+
 ## CLI Viewer
 
 To view your diagrams, use the CLI:
