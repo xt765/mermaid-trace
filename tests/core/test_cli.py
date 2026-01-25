@@ -66,9 +66,9 @@ def test_handler_logic() -> None:
         
     handler.path = "/"
     handler.wfile = io.BytesIO()
-    handler.send_response = MagicMock() # type: ignore
-    handler.send_header = MagicMock() # type: ignore
-    handler.end_headers = MagicMock() # type: ignore
+    handler.send_response = MagicMock() # type: ignore[method-assign]
+    handler.send_header = MagicMock() # type: ignore[method-assign]
+    handler.end_headers = MagicMock() # type: ignore[method-assign]
     
     handler.do_GET()
     
