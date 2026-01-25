@@ -10,16 +10,16 @@ if TYPE_CHECKING:
     from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 else:
     try:
-        from fastapi import Request, Response
-        from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+        from fastapi import Request, Response  # type: ignore[import-not-found]
+        from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint  # type: ignore[import-not-found]
     except ImportError:
         # Handle the case where FastAPI/Starlette are not installed.
         # We define dummy types to prevent NameErrors at import time,
         # but instantiation will fail explicitly in __init__.
-        BaseHTTPMiddleware = object
-        Request = Any
-        Response = Any
-        RequestResponseEndpoint = Any
+        BaseHTTPMiddleware = object  # type: ignore[misc,assignment]
+        Request = Any  # type: ignore[assignment]
+        Response = Any  # type: ignore[assignment]
+        RequestResponseEndpoint = Any  # type: ignore[assignment]
 
 class MermaidTraceMiddleware(BaseHTTPMiddleware):
     """

@@ -1,25 +1,26 @@
 import pytest
 import logging
+from typing import Any, Generator
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from mermaid_trace.integrations.fastapi import MermaidTraceMiddleware
 
 @pytest.fixture
-def app():
+def app() -> FastAPI:
     app = FastAPI()
     app.add_middleware(MermaidTraceMiddleware, app_name="TestApp")
     
     @app.get("/test")
-    async def test_endpoint():
+    async def test_endpoint() -> dict[str, str]:
         return {"message": "ok"}
         
     return app
 
 @pytest.fixture
-def client(app):
+def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 
-def test_fastapi_middleware_logs(client, caplog):
+def test_fastapi_middleware_logs(client: TestClient, caplog: pytest.LogCaptureFixture) -> None:
     """
     Test that the middleware correctly logs request and response events.
     """
@@ -35,13 +36,16 @@ def test_fastapi_middleware_logs(client, caplog):
     
     # Check Request Log
     req_log = mermaid_logs[0]
-    assert req_log.flow_event.source == "Client"
-    assert req_log.flow_event.target == "TestApp"
-    assert "GET /test" in req_log.flow_event.action
+    # Use getattr to avoid mypy errors since flow_event is dynamically added
+    req_event = getattr(req_log, 'flow_event')
+    assert req_event.source == "Client"
+    assert req_event.target == "TestApp"
+    assert "GET /test" in req_event.action
     
     # Check Response Log
     resp_log = mermaid_logs[1]
-    assert resp_log.flow_event.source == "TestApp"
-    assert resp_log.flow_event.target == "Client"
-    assert resp_log.flow_event.is_return is True
-    assert "200" in resp_log.flow_event.result
+    resp_event = getattr(resp_log, 'flow_event')
+    assert resp_event.source == "TestApp"
+    assert resp_event.target == "Client"
+    assert resp_event.is_return is True
+    assert "200" in resp_event.result
