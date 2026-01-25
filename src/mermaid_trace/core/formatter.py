@@ -3,6 +3,7 @@ import re
 from typing import Optional
 from .events import FlowEvent
 
+
 class MermaidFormatter(logging.Formatter):
     """
     Custom formatter to convert FlowEvents into Mermaid sequence diagram syntax.
@@ -10,8 +11,8 @@ class MermaidFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         # 1. Retrieve the FlowEvent
-        event: Optional[FlowEvent] = getattr(record, 'flow_event', None)
-        
+        event: Optional[FlowEvent] = getattr(record, "flow_event", None)
+
         if not event:
             # Fallback for standard logs if they accidentally reach this handler
             return super().format(record)
@@ -26,13 +27,13 @@ class MermaidFormatter(logging.Formatter):
         # Sanitize participant names to avoid syntax errors in Mermaid
         src = self._sanitize(event.source)
         tgt = self._sanitize(event.target)
-        
+
         # Determine arrow type
         # ->> : Solid line with arrowhead (synchronous call)
         # -->> : Dotted line with arrowhead (return)
         # --x : Dotted line with cross (error)
         arrow = "-->>" if event.is_return else "->>"
-        
+
         msg = ""
         if event.is_error:
             arrow = "--x"
@@ -43,13 +44,13 @@ class MermaidFormatter(logging.Formatter):
         else:
             # For calls, we show Action(Params) or just Action
             msg = f"{event.message}({event.params})" if event.params else event.message
-            
+
         # Optional: Add note or group if trace_id changes (not implemented in single line format)
         # For now, we just output the interaction.
-        
+
         # Escape message for Mermaid safety (e.g. replacing newlines)
         msg = self._escape_message(msg)
-        
+
         # Format: Source->>Target: Message
         return f"{src}{arrow}{tgt}: {msg}"
 
@@ -57,13 +58,13 @@ class MermaidFormatter(logging.Formatter):
         """
         Sanitizes participant names to be valid Mermaid identifiers.
         Allows alphanumeric and underscores. Replaces others.
-        
+
         Mermaid doesn't like spaces or special characters in participant aliases
         unless they are quoted (which we are not doing here for simplicity),
         so we replace them with underscores.
         """
         # Replace any non-alphanumeric character (except underscore) with underscore
-        clean_name = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+        clean_name = re.sub(r"[^a-zA-Z0-9_]", "_", name)
         # Ensure it doesn't start with a digit (Mermaid doesn't like that sometimes, though often okay)
         if clean_name and clean_name[0].isdigit():
             clean_name = "_" + clean_name
@@ -75,6 +76,6 @@ class MermaidFormatter(logging.Formatter):
         Mermaid messages can contain most chars, but : and newlines can be tricky.
         """
         # Replace newlines with <br/> for Mermaid display
-        msg = msg.replace('\n', '<br/>')
+        msg = msg.replace("\n", "<br/>")
         # We might want to escape other chars if needed, but usually text after : is forgiving.
         return msg

@@ -3,17 +3,18 @@ from contextlib import asynccontextmanager, contextmanager
 from typing import Any, AsyncIterator, Dict, Iterator
 import uuid
 
+
 class LogContext:
     """
     Manages global context information for logging (e.g., request_id, user_id, current_participant).
-    
-    This class utilizes `contextvars.ContextVar` to ensure thread-safety and 
+
+    This class utilizes `contextvars.ContextVar` to ensure thread-safety and
     correct context propagation in asynchronous (asyncio) environments.
-    Unlike `threading.local()`, `ContextVar` works natively with Python's async/await 
-    event loop, ensuring that context is preserved across `await` points but isolated 
+    Unlike `threading.local()`, `ContextVar` works natively with Python's async/await
+    event loop, ensuring that context is preserved across `await` points but isolated
     between different concurrent tasks.
     """
-    
+
     # ContextVar is the key mechanism here.
     # It stores a dictionary unique to the current execution context (Task/Thread).
     # "log_context" is the name of the variable, useful for debugging.
@@ -24,9 +25,9 @@ class LogContext:
     def _get_store(cls) -> Dict[str, Any]:
         """
         Retrieves the current context dictionary.
-        
-        If the context variable has not been set in the current context, 
-        it returns a fresh empty dictionary. This prevents LookupError 
+
+        If the context variable has not been set in the current context,
+        it returns a fresh empty dictionary. This prevents LookupError
         and ensures there's always a valid dictionary to work with.
         """
         try:
@@ -38,8 +39,8 @@ class LogContext:
     def set(cls, key: str, value: Any) -> None:
         """
         Sets a specific key-value pair in the current context.
-        
-        Important: ContextVars are immutable collections. To modify the context, 
+
+        Important: ContextVars are immutable collections. To modify the context,
         we must:
         1. Retrieve the current dictionary.
         2. Create a shallow copy (to avoid affecting parent contexts if we were reusing the object).
@@ -54,8 +55,8 @@ class LogContext:
     def update(cls, data: Dict[str, Any]) -> None:
         """
         Updates multiple keys in the current context at once.
-        
-        This follows the same Copy-Update-Set pattern as `set()` to maintain 
+
+        This follows the same Copy-Update-Set pattern as `set()` to maintain
         context isolation.
         """
         if not data:
@@ -83,18 +84,18 @@ class LogContext:
     def scope(cls, data: Dict[str, Any]) -> Iterator[None]:
         """
         Synchronous context manager for temporary context updates.
-        
+
         Usage:
             with LogContext.scope({"user_id": 123}):
                 # user_id is 123 here
                 some_function()
             # user_id reverts to previous value (or disappears) here
-            
+
         Mechanism:
             1. Copies current context and updates it with new data.
             2. Sets the ContextVar to this new state, receiving a `Token`.
             3. Yields control to the block.
-            4. Finally, uses the `Token` to reset the ContextVar to its exact state 
+            4. Finally, uses the `Token` to reset the ContextVar to its exact state
                before the block entered.
         """
         current_ctx = cls._get_store().copy()
@@ -111,11 +112,11 @@ class LogContext:
     async def ascope(cls, data: Dict[str, Any]) -> AsyncIterator[None]:
         """
         Async context manager for temporary context updates in coroutines.
-        
+
         Usage:
             async with LogContext.ascope({"request_id": "abc"}):
                 await some_async_function()
-                
+
         This is functionally identical to `scope` but designed for `async with` blocks.
         It ensures that even if the code inside `yield` suspends execution (await),
         the context remains valid for that task.
@@ -165,12 +166,12 @@ class LogContext:
     def current_trace_id(cls) -> str:
         """
         Retrieves the current trace ID for correlating events in a single flow.
-        
+
         Lazy Initialization Logic:
-        If no trace_id exists in the current context, it generates a new UUIDv4 
+        If no trace_id exists in the current context, it generates a new UUIDv4
         and sets it immediately. This ensures that:
         1. A trace ID is always available when asked for.
-        2. Once generated, the same ID persists for the duration of the context 
+        2. Once generated, the same ID persists for the duration of the context
            (unless manually changed), linking all subsequent logs together.
         """
         tid = cls.get("trace_id")

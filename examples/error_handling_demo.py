@@ -3,6 +3,7 @@ from mermaid_trace import trace, configure_flow
 # Configure output
 configure_flow("error_trace.mmd")
 
+
 class Database:
     @trace(target="Database")
     def connect(self) -> bool:
@@ -16,6 +17,7 @@ class Database:
             # and rendered as an error return (x--).
             raise ValueError("Invalid SQL Syntax")
         return ["row1", "row2"]
+
 
 class Service:
     def __init__(self) -> None:
@@ -34,14 +36,15 @@ class Service:
             print(f"Caught error: {e}")
             return []
 
+
 if __name__ == "__main__":
     svc = Service()
-    
+
     print("Scenario 1: Success Flow")
     svc.process_request("SELECT * FROM users")
-    
+
     print("\nScenario 2: Error Handling Flow")
     # This triggers the exception in Database.query
     svc.process_request("SELECT * FROM users WHERE syntax error")
-    
+
     print("Done. Check 'error_trace.mmd' for the diagram.")

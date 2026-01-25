@@ -1,10 +1,8 @@
 import asyncio
 import pytest
-import time
 from pathlib import Path
 from mermaid_trace import trace, configure_flow
 from mermaid_trace.handlers.async_handler import AsyncMermaidHandler
-import logging
 
 @pytest.mark.asyncio
 async def test_concurrency_consistency(tmp_path: Path) -> None:
@@ -47,8 +45,8 @@ async def test_concurrency_consistency(tmp_path: Path) -> None:
     
     lines = content.strip().splitlines()
     # Filter out header
-    data_lines = [l for l in lines if "Worker-" in l]
-    
+    data_lines = [line for line in lines if "Worker-" in line]
+
     assert len(data_lines) == count * 2, f"Expected {count*2} lines, got {len(data_lines)}"
     
     for i in range(count):

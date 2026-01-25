@@ -21,14 +21,15 @@ import queue
 import atexit
 from typing import List, Optional
 
+
 class AsyncMermaidHandler(logging.handlers.QueueHandler):
     """
     使用后台线程写入日志的非阻塞日志处理器。
-    
-    此处理器将日志记录推送到队列，然后由运行在单独线程中的 
+
+    此处理器将日志记录推送到队列，然后由运行在单独线程中的
     QueueListener 获取并分发到实际的处理器（例如 MermaidFileHandler）。
     """
-    
+
     def __init__(self, handlers: List[logging.Handler], queue_size: int = -1):
         """
         初始化异步处理器。
@@ -38,13 +39,13 @@ class AsyncMermaidHandler(logging.handlers.QueueHandler):
                       (例如 [MermaidFileHandler(...)])
             queue_size: 队列的最大大小。-1 表示无限。
         """
-        self._log_queue = queue.Queue(queue_size)
+        self._log_queue: queue.Queue[logging.LogRecord] = queue.Queue(queue_size)
         super().__init__(self._log_queue)
         
         # 初始化 QueueListener
         # 它会启动一个内部线程来监控队列
         # respect_handler_level=True 确保目标处理器的日志级别被遵守
-        self._listener = logging.handlers.QueueListener(
+        self._listener: Optional[logging.handlers.QueueListener] = logging.handlers.QueueListener(
             self._log_queue, 
             *handlers, 
             respect_handler_level=True
@@ -58,7 +59,7 @@ class AsyncMermaidHandler(logging.handlers.QueueHandler):
     def stop(self) -> None:
         """
         停止监听器并刷新队列。
-        
+
         这通过 `atexit` 注册，以确保所有挂起的日志
         在应用程序终止之前写入磁盘。
         """

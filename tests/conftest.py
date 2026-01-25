@@ -2,6 +2,7 @@ import pytest
 import logging
 from typing import Any
 
+
 @pytest.fixture(autouse=True)
 def configure_caplog(caplog: Any) -> None:
     """

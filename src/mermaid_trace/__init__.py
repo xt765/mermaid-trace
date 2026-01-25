@@ -40,19 +40,20 @@ from typing import List, Optional
 
 import logging
 
+
 def configure_flow(
     output_file: str = "flow.mmd",
     handlers: Optional[List[logging.Handler]] = None,
     append: bool = False,
-    async_mode: bool = False
+    async_mode: bool = False,
 ) -> logging.Logger:
     """
     Configures the flow logger to output to a Mermaid file.
-    
+
     This function sets up the logging infrastructure required to capture
     trace events and write them to the specified output file. It should
     be called once at the start of your application to initialize the tracing system.
-    
+
     Args:
         output_file (str): The absolute or relative path to the output .mmd file.
                            Defaults to "flow.mmd" in the current directory.
@@ -67,7 +68,7 @@ def configure_flow(
                            Recommended for high-performance production environments to avoid
                            blocking the main execution thread during file I/O.
                            Defaults to False.
-    
+
     Returns:
         logging.Logger: The configured logger instance used for flow tracing.
     """
@@ -75,15 +76,15 @@ def configure_flow(
     # This logger is isolated from the root logger to prevent pollution
     logger = logging.getLogger("mermaid_trace.flow")
     logger.setLevel(logging.INFO)
-    
+
     # Remove existing handlers to avoid duplicate logs if configured multiple times
     # unless 'append' is requested. This ensures idempotency when calling configure_flow multiple times.
     if not append and logger.hasHandlers():
         logger.handlers.clear()
-        
+
     # Determine the target handlers
     target_handlers = []
-    
+
     if handlers:
         # Use user-provided handlers if available
         target_handlers = handlers
@@ -93,7 +94,7 @@ def configure_flow(
         handler = MermaidFileHandler(output_file)
         handler.setFormatter(MermaidFormatter())
         target_handlers = [handler]
-    
+
     if async_mode:
         # Wrap the target handlers in an AsyncMermaidHandler (QueueHandler)
         # The QueueListener will pick up logs from the queue and dispatch to target_handlers
@@ -105,8 +106,9 @@ def configure_flow(
         # Simple and reliable for debugging or low-throughput applications
         for h in target_handlers:
             logger.addHandler(h)
-    
+
     return logger
+
 
 try:
     # Attempt to retrieve the installed package version
@@ -117,4 +119,13 @@ except PackageNotFoundError:
 
 
 # Export public API for easy access
-__all__ = ["trace_interaction", "trace", "configure_flow", "MermaidFileHandler", "AsyncMermaidHandler", "LogContext", "FlowEvent", "MermaidFormatter"]
+__all__ = [
+    "trace_interaction",
+    "trace",
+    "configure_flow",
+    "MermaidFileHandler",
+    "AsyncMermaidHandler",
+    "LogContext",
+    "FlowEvent",
+    "MermaidFormatter",
+]
