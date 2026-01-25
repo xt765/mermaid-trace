@@ -1,21 +1,25 @@
-from typing import Any
-
-try:
-    from fastapi import Request, Response
-    from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-except ImportError:
-    # Handle the case where FastAPI/Starlette are not installed.
-    # We define dummy types to prevent NameErrors at import time,
-    # but instantiation will fail explicitly in __init__.
-    BaseHTTPMiddleware = object # type: ignore
-    Request = Any # type: ignore
-    Response = Any # type: ignore
-    RequestResponseEndpoint = Any # type: ignore
+from typing import Any, TYPE_CHECKING
+import time
 
 from ..core.events import FlowEvent
 from ..core.context import LogContext
 from ..core.decorators import get_flow_logger
-import time
+
+if TYPE_CHECKING:
+    from fastapi import Request, Response
+    from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+else:
+    try:
+        from fastapi import Request, Response
+        from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+    except ImportError:
+        # Handle the case where FastAPI/Starlette are not installed.
+        # We define dummy types to prevent NameErrors at import time,
+        # but instantiation will fail explicitly in __init__.
+        BaseHTTPMiddleware = object
+        Request = Any
+        Response = Any
+        RequestResponseEndpoint = Any
 
 class MermaidTraceMiddleware(BaseHTTPMiddleware):
     """
@@ -35,7 +39,7 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
             app: The FastAPI application instance.
             app_name: The name of this service to appear in the diagram (e.g., "UserAPI").
         """
-        if BaseHTTPMiddleware is object: # type: ignore
+        if BaseHTTPMiddleware is object: # type: ignore[comparison-overlap]
              raise ImportError("FastAPI/Starlette is required to use MermaidTraceMiddleware")
         super().__init__(app)
         self.app_name = app_name
