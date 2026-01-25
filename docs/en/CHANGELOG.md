@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI/CD**: Resolved test coverage reporting issues in GitHub Actions by standardizing on editable installs (`pip install -e .[dev]`) across all workflows.
 - **CI/CD**: Aligned coverage configuration in `pyproject.toml` to correctly target the source directory (`src/mermaid_trace`).
 - **Docs**: Fixed badge links in README to use consistent style and valid sources.
+- **Compatibility**: Officially added support for Python 3.13 and 3.14 in project classifiers and CI workflows.
 
 ## [0.3.0] - 2026-01-26
 
