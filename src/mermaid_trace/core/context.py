@@ -199,7 +199,7 @@ class LogContext:
             cls._context_store.reset(token)
 
     @classmethod
-    def set_all(cls, data: Dict[str, Any]) -> Token[Dict[str, Any]]:
+    def set_all(cls, data: Dict[str, Any]) -> "Token[Dict[str, Any]]":
         """
         Replaces the ENTIRE context with a new dictionary.
         
@@ -216,7 +216,7 @@ class LogContext:
         return cls._context_store.set(data.copy())
 
     @classmethod
-    def reset(cls, token: Token[Dict[str, Any]]) -> None:
+    def reset(cls, token: "Token[Dict[str, Any]]") -> None:
         """
         Manually resets the context using a token.
         
