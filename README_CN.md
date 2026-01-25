@@ -1,5 +1,11 @@
 # MermaidTrace: 能画图的 Python 日志工具
 
+[![PyPI version](https://img.shields.io/pypi/v/mermaid-trace.svg?style=flat-square)](https://pypi.org/project/mermaid-trace/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/mermaid-trace.svg?style=flat-square)](https://pypi.org/project/mermaid-trace/)
+[![License](https://img.shields.io/pypi/l/mermaid-trace.svg?style=flat-square)](LICENSE)
+[![CI Status](https://img.shields.io/github/actions/workflow/status/xt765/mermaid-trace/ci.yml?style=flat-square&label=CI)](https://github.com/xt765/mermaid-trace/actions/workflows/ci.yml)
+[![Codecov](https://img.shields.io/codecov/c/github/xt765/mermaid-trace?style=flat-square&logo=codecov)](https://codecov.io/gh/xt765/mermaid-trace)
+
 **别再干读日志了。开始“看”懂它们吧。**
 
 MermaidTrace 是一个专业的日志工具，能从你的代码执行中自动生成 [Mermaid JS](https://mermaid.js.org/) 时序图。它非常适合可视化复杂的业务逻辑、微服务交互或异步流程。
@@ -89,7 +95,7 @@ mermaid-trace serve my_flow.mmd
 
 ## 🤝 贡献
 
-欢迎贡献！详情请参阅 [CONTRIBUTING.md](docs/en/CONTRIBUTING.md)。
+欢迎贡献！详情请参阅 [CONTRIBUTING.md](docs/zh/CONTRIBUTING.md)。
 
 ## 📄 许可证
 
