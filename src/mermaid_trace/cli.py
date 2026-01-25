@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Type, Any
 
 try:
-    from watchdog.observers import Observer  # type: ignore[import-not-found]
-    from watchdog.events import FileSystemEventHandler  # type: ignore[import-not-found]
+    from watchdog.observers import Observer  
+    from watchdog.events import FileSystemEventHandler  
     HAS_WATCHDOG = True
 except ImportError:
     HAS_WATCHDOG = False
@@ -141,7 +141,7 @@ def serve(filename: str, port: int = 8000) -> None:
     # Setup Watchdog if available
     observer = None
     if HAS_WATCHDOG:
-        class FileChangeHandler(FileSystemEventHandler):  # type: ignore[misc]
+        class FileChangeHandler(FileSystemEventHandler):
             def on_modified(self, event: Any) -> None:
                 if not event.is_directory and os.path.abspath(event.src_path) == str(path.resolve()):
                     print(f"[Watchdog] File changed: {filename}")
