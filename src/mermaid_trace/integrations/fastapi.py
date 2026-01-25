@@ -10,8 +10,8 @@ if TYPE_CHECKING:
     from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 else:
     try:
-        from fastapi import Request, Response  # type: ignore[import-not-found]
-        from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint  # type: ignore[import-not-found]
+        from fastapi import Request, Response
+        from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
     except ImportError:
         # Handle the case where FastAPI/Starlette are not installed.
         # We define dummy types to prevent NameErrors at import time,
