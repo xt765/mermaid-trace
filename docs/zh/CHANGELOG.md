@@ -5,6 +5,13 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/)（语义化版本控制）。
 
+## [0.3.1] - 2026-01-26
+
+### 修复
+- **CI/CD**: 通过在所有工作流中统一使用可编辑安装 (`pip install -e .[dev]`)，解决了 GitHub Actions 中的测试覆盖率报告问题。
+- **CI/CD**: 调整了 `pyproject.toml` 中的覆盖率配置，以正确指向源代码目录 (`src/mermaid_trace`)。
+- **文档**: 修复了 README 中的徽章链接，使用了统一的样式和有效的来源。
+
 ## [0.3.0] - 2026-01-26
 
 ### 新增
