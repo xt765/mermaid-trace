@@ -29,14 +29,29 @@ classifiers = [
 ]
 dependencies = [
     "typing-extensions>=4.0.0",
+    "watchdog>=2.0.0",
 ]
 
 [project.optional-dependencies]
-# Removed legacy integrations as they are not yet re-implemented for flow viz
-dev = ["pytest", "pytest-asyncio", "pytest-cov", "ruff", "mypy", "fastapi", "httpx"]
+fastapi = [
+    "fastapi>=0.100.0",
+]
+all = [
+    "mermaid-trace[fastapi]",
+]
+dev = [
+    "mermaid-trace[all]",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "ruff",
+    "mypy",
+    "httpx",
+]
 
 [project.urls]
 Documentation = "https://github.com/xt765/mermaid-trace#readme"
+Changelog = "https://github.com/xt765/mermaid-trace/blob/main/docs/en/CHANGELOG.md"
 Issues = "https://github.com/xt765/mermaid-trace/issues"
 Source = "https://github.com/xt765/mermaid-trace"
 
@@ -62,6 +77,14 @@ addopts = "--cov=src/mermaid_trace --cov-report=term-missing --cov-report=html -
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "@overload",
+]
+fail_under = 90
 
 [tool.ruff]
 line-length = 88

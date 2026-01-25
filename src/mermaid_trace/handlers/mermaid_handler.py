@@ -1,66 +1,86 @@
 import logging
-from typing import Optional
-from ..core.events import FlowEvent
+import os
 
-class MermaidFileHandler(logging.Handler):
+class MermaidFileHandler(logging.FileHandler):
     """
-    A custom logging handler that writes `FlowEvent` objects directly to a Mermaid (.mmd) file.
+    A custom logging handler that writes `FlowEvent` objects to a Mermaid (.mmd) file.
     
-    This handler listens for logs containing a `flow_event` in their `extra` dictionary
-    and appends them to the file in Mermaid Sequence Diagram syntax.
+    Strategy & Optimization:
+    1. **Inheritance**: Inherits from `logging.FileHandler` to leverage robust, 
+       thread-safe file writing capabilities (locking, buffering) provided by the stdlib.
+    2. **Header Management**: Automatically handles the Mermaid file header 
+       (`sequenceDiagram`, `title`, `autonumber`) to ensure the output file 
+       is a valid Mermaid document. It smartly detects if the file is new or 
+       being appended to.
+    3. **Deferred Formatting**: The actual string conversion happens in the `emit` 
+       method (via the formatter), keeping the handler focused on I/O.
     """
-    def __init__(self, filename: str, title: str = "Log Flow", mode: str = 'w'):
+    
+    def __init__(self, filename: str, title: str = "Log Flow", mode: str = 'a', encoding: str = 'utf-8', delay: bool = False):
         """
         Initialize the handler.
         
         Args:
             filename (str): The path to the output .mmd file.
-            title (str): The title of the Mermaid diagram.
-            mode (str): File open mode. 'w' (overwrite) or 'a' (append). 
-                        Defaults to 'w' which initializes a new diagram.
+            title (str): The title of the Mermaid diagram (written in the header).
+            mode (str): File open mode. 'w' (overwrite) or 'a' (append).
+            encoding (str): File encoding. Defaults to 'utf-8'.
+            delay (bool): If True, file opening is deferred until the first call to emit.
+                          Useful to avoid creating empty files if no logs occur.
         """
-        super().__init__()
-        self.filename = filename
-        self.mode = mode
+        # Ensure directory exists to prevent FileNotFoundError on open
+        os.makedirs(os.path.dirname(os.path.abspath(filename)) or ".", exist_ok=True)
+        
+        # Header Strategy:
+        # We need to write the "sequenceDiagram" preamble ONLY if:
+        # 1. We are overwriting the file (mode='w').
+        # 2. We are appending (mode='a'), but the file doesn't exist or is empty.
+        should_write_header = False
+        if mode == 'w':
+            should_write_header = True
+        elif mode == 'a':
+            if not os.path.exists(filename) or os.path.getsize(filename) == 0:
+                should_write_header = True
+        
+        # Initialize standard FileHandler (opens the file unless delay=True)
+        super().__init__(filename, mode, encoding, delay)
         self.title = title
         
-        # Initialize file with the Mermaid diagram header if in write mode
-        if mode == 'w':
+        # Write header immediately if needed.
+        if should_write_header:
             self._write_header()
 
     def _write_header(self) -> None:
         """
-        Writes the initial Mermaid syntax lines (diagram type, title, configuration).
+        Writes the initial Mermaid syntax lines.
+        
+        This setup is required for Mermaid JS or Live Editor to render the diagram.
         """
-        with open(self.filename, 'w', encoding='utf-8') as f:
-            f.write("sequenceDiagram\n")
-            f.write(f"    title {self.title}\n")
-            f.write("    autonumber\n")  # Automatically number the steps
+        # We use the stream directly if available, or open momentarily if delayed
+        if self.stream:
+            self.stream.write("sequenceDiagram\n")
+            self.stream.write(f"    title {self.title}\n")
+            self.stream.write("    autonumber\n")
+            self.flush()
+        else:
+            # Handling 'delay=True' case:
+            # If the file isn't open yet, we temporarily open it just to write the header.
+            # This ensures the file is valid even if the application crashes before the first log.
+            with open(self.baseFilename, self.mode, encoding=self.encoding) as f:
+                f.write("sequenceDiagram\n")
+                f.write(f"    title {self.title}\n")
+                f.write("    autonumber\n")
 
     def emit(self, record: logging.LogRecord) -> None:
         """
         Process a log record.
         
-        This method checks if the log record contains a 'flow_event' attribute.
-        If present, it converts the event to a Mermaid string and appends it to the file.
-        
-        Args:
-            record (logging.LogRecord): The log record to process.
+        Optimization:
+        - Checks for `flow_event` attribute first. This allows this handler 
+          to be attached to the root logger without processing irrelevant system logs.
+        - Delegates the actual writing to `super().emit()`, which handles 
+          thread locking and stream flushing.
         """
-        # Check if this record has a flow event attached.
-        # The `trace` decorator attaches 'flow_event' to the 'extra' dict, 
-        # which the logging system merges into the LogRecord object.
-        event: Optional[FlowEvent] = getattr(record, 'flow_event', None)
-        
-        if event:
-            try:
-                # Convert the event to a diagram line
-                line = event.to_mermaid_line()
-                
-                # Append to the file immediately (simple implementation)
-                # Note: In high-throughput systems, you might want to buffer this.
-                with open(self.filename, 'a', encoding='utf-8') as f:
-                    f.write(f"    {line}\n")
-            except Exception:
-                # If writing fails, fall back to standard error handling
-                self.handleError(record)
+        # Only process records that contain our structured FlowEvent data
+        if hasattr(record, 'flow_event'):
+            super().emit(record)

@@ -1,0 +1,23 @@
+sequenceDiagram
+    title Log Flow
+    autonumber
+Unknown->>__main__: Worker('Worker-0', 0.1)
+Unknown->>__main__: Worker('Worker-1', 0.1)
+Unknown->>__main__: Worker('Worker-2', 0.1)
+Unknown->>__main__: Worker('Worker-3', 0.1)
+Unknown->>__main__: Worker('Worker-4', 0.1)
+Unknown->>__main__: Worker('Worker-5', 0.1)
+Unknown->>__main__: Worker('Worker-6', 0.1)
+Unknown->>__main__: Worker('Worker-7', 0.1)
+Unknown->>__main__: Worker('Worker-8', 0.1)
+Unknown->>__main__: Worker('Worker-9', 0.1)
+__main__-->>Unknown: Return: 'Worker-0 done'
+__main__-->>Unknown: Return: 'Worker-1 done'
+__main__-->>Unknown: Return: 'Worker-2 done'
+__main__-->>Unknown: Return: 'Worker-3 done'
+__main__-->>Unknown: Return: 'Worker-4 done'
+__main__-->>Unknown: Return: 'Worker-5 done'
+__main__-->>Unknown: Return: 'Worker-6 done'
+__main__-->>Unknown: Return: 'Worker-7 done'
+__main__-->>Unknown: Return: 'Worker-8 done'
+__main__-->>Unknown: Return: 'Worker-9 done'

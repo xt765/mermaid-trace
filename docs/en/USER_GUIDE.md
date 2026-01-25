@@ -12,6 +12,16 @@ MermaidTrace bridges the gap between code execution and architectural visualizat
 4.  **Return**: MermaidTrace logs a "Return" event (`-->>`) with the return value.
 5.  **Visualize**: The events are written to a `.mmd` file, which renders as a sequence diagram.
 
+## Concurrency & Trace IDs
+
+MermaidTrace is built for modern async applications. It automatically handles concurrent requests by assigning a unique **Trace ID** to each flow.
+
+- **Automatic**: A new Trace ID is generated when a flow starts (if one doesn't exist).
+- **Propagation**: The ID is stored in `contextvars`, ensuring it follows `await` calls and background tasks automatically.
+- **FastAPI**: The middleware automatically extracts `X-Trace-ID` from headers or generates a new one.
+
+*Note: Currently, all traces are written to the same file. Use the Trace ID in the logs to filter specific sessions if needed.*
+
 ## Context Inference
 
 One of the most powerful features is **Context Inference**.
@@ -39,4 +49,4 @@ To view your diagrams, use the CLI:
 mermaid-trace serve flow.mmd --port 8000
 ```
 
-This starts a local server and opens your browser. It auto-refreshes when you reload the page.
+This starts a local server and opens your browser. It monitors the file for changes and auto-refreshes the page instantly.

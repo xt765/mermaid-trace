@@ -1,8 +1,8 @@
 import pytest
 import logging
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from mermaid_trace.integrations.fastapi import MermaidTraceMiddleware
+from httpx import AsyncClient, ASGITransport
 
 @pytest.fixture
 def app() -> FastAPI:
@@ -16,16 +16,19 @@ def app() -> FastAPI:
     return app
 
 @pytest.fixture
-def client(app: FastAPI) -> TestClient:
-    return TestClient(app)
+async def client(app: FastAPI) -> AsyncClient:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
 
-def test_fastapi_middleware_logs(client: TestClient, caplog: pytest.LogCaptureFixture) -> None:
+@pytest.mark.asyncio
+async def test_fastapi_middleware_logs(client: AsyncClient, caplog: pytest.LogCaptureFixture) -> None:
     """
     Test that the middleware correctly logs request and response events.
     """
     caplog.set_level(logging.INFO)
     
-    response = client.get("/test")
+    response = await client.get("/test")
     assert response.status_code == 200
     
     # Filter logs that have flow_event attached

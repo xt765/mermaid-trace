@@ -17,6 +17,7 @@ from .core.decorators import trace_interaction, trace
 from .handlers.mermaid_handler import MermaidFileHandler
 from .core.events import FlowEvent
 from .core.context import LogContext
+from .core.formatter import MermaidFormatter
 # We don't import integrations by default to avoid hard dependencies
 # Integrations (like FastAPI) must be imported explicitly by the user if needed.
 
@@ -49,6 +50,10 @@ def configure_flow(output_file: str = "flow.mmd") -> logging.Logger:
         
     # Create and attach the custom handler that writes Mermaid syntax
     handler = MermaidFileHandler(output_file)
+    
+    # Use the custom formatter to convert FlowEvents to Mermaid strings
+    handler.setFormatter(MermaidFormatter())
+    
     logger.addHandler(handler)
     
     return logger
@@ -62,4 +67,4 @@ except PackageNotFoundError:
 
 
 # Export public API for easy access
-__all__ = ["trace_interaction", "trace", "configure_flow", "MermaidFileHandler", "LogContext", "FlowEvent"]
+__all__ = ["trace_interaction", "trace", "configure_flow", "MermaidFileHandler", "LogContext", "FlowEvent", "MermaidFormatter"]

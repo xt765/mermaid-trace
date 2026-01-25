@@ -1,5 +1,6 @@
 from typing import Any, TYPE_CHECKING
 import time
+import uuid
 
 from ..core.events import FlowEvent
 from ..core.context import LogContext
@@ -60,6 +61,10 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
         # otherwise fallback to "Client".
         source = request.headers.get("X-Source", "Client")
         
+        # Determine Trace ID
+        # Check X-Trace-ID header or generate new UUID
+        trace_id = request.headers.get("X-Trace-ID") or str(uuid.uuid4())
+        
         # 2. Determine Action
         # Format: "METHOD /path" (e.g., "GET /users")
         action = f"{request.method} {request.url.path}"
@@ -72,14 +77,15 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
             target=self.app_name,
             action=action,
             message=action,
-            params=f"query={request.query_params}" if request.query_params else None
+            params=f"query={request.query_params}" if request.query_params else None,
+            trace_id=trace_id
         )
         logger.info(f"{source}->{self.app_name}: {action}", extra={"flow_event": req_event})
         
         # 4. Set Context and Process Request
         # We set the current participant to the app name.
         # `ascope` ensures this context applies to all code running within `call_next`.
-        async with LogContext.ascope({"participant": self.app_name}):
+        async with LogContext.ascope({"participant": self.app_name, "trace_id": trace_id}):
             start_time = time.time()
             try:
                 # Pass control to the application
@@ -93,7 +99,8 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
                     action=action,
                     message="Return",
                     is_return=True,
-                    result=f"{response.status_code} ({duration:.1f}ms)"
+                    result=f"{response.status_code} ({duration:.1f}ms)",
+                    trace_id=trace_id
                 )
                 logger.info(f"{self.app_name}->{source}: Return", extra={"flow_event": resp_event})
                 return response
@@ -108,7 +115,8 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
                     message=str(e),
                     is_return=True,
                     is_error=True,
-                    error_message=str(e)
+                    error_message=str(e),
+                    trace_id=trace_id
                 )
                 logger.error(f"{self.app_name}-x{source}: Error", extra={"flow_event": err_event})
                 raise

@@ -15,7 +15,7 @@ class TestFlow(unittest.TestCase):
             os.remove(self.output_file)
 
     def test_trace_interaction(self) -> None:
-        @trace_interaction("A", "B", "Action")
+        @trace_interaction(source="A", target="B", action="Action")
         def func() -> str:
             return "ok"
             
@@ -29,7 +29,7 @@ class TestFlow(unittest.TestCase):
         self.assertIn("B-->>A: Return", content)
 
     def test_error_interaction(self) -> None:
-        @trace_interaction("A", "B", "Fail")
+        @trace_interaction(source="A", target="B", action="Fail")
         def fail() -> None:
             raise ValueError("oops")
             

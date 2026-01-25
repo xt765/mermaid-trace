@@ -1,0 +1,15 @@
+sequenceDiagram
+    title Log Flow
+    autonumber
+    Unknown->>__main__: Process Request('A')
+    __main__->>__main__: Step One('A')
+    Unknown->>__main__: Process Request('B')
+    __main__->>__main__: Step One('B')
+    __main__-->>__main__: Return: 'A_one'
+    __main__->>__main__: Step Two('A')
+    __main__-->>__main__: Return: 'B_one'
+    __main__->>__main__: Step Two('B')
+    __main__-->>__main__: Return: 'A_two'
+    __main__-->>Unknown: Return: 'done'
+    __main__-->>__main__: Return: 'B_two'
+    __main__-->>Unknown: Return: 'done'

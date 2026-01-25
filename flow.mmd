@@ -1,0 +1,15 @@
+sequenceDiagram
+    title Log Flow
+    autonumber
+    Client->>API: Request Data
+    API->>Database: Query Users
+    Database-->>API: Return: ['User1', 'User2']
+    API-->>Client: Return: 'Data'
+    Client->>AsyncService: Do Async Work
+    AsyncService-->>Client: Return: 'Done'
+Client->>API: Request Data
+API->>Database: Query Users
+Database-->>API: Return: ['User1', 'User2']
+API-->>Client: Return: 'Data'
+Client->>AsyncService: Do Async Work
+AsyncService-->>Client: Return: 'Done'

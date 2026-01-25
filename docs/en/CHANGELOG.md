@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-01-26
+
+### Improved
+- **Performance**: Completely refactored `MermaidFileHandler` to use standard buffering and file locking, resolving severe I/O blocking issues in high-throughput scenarios.
+- **Concurrency**: Introduced `Trace ID` support in `LogContext` and `FlowEvent` to correctly track and correlate logs in concurrent execution environments.
+- **Testing**: Added a comprehensive test suite with over 90% code coverage, including unit tests for core modules and integration tests for FastAPI and CLI.
+- **Documentation**: Updated API Reference and User Guide to reflect new concurrency features and Trace ID usage.
+
+### Fixed
+- Fixed a bug where `@trace` could not be used without parentheses.
+- Fixed `FastAPI` middleware compatibility with new event structure.
+- Fixed CLI `serve` command to properly handle file read errors and missing dependencies.
+
 ## [0.2.0] - 2026-01-26
 
 ### Major Pivot: Visualization First

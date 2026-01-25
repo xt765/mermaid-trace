@@ -7,72 +7,69 @@ class FlowEvent:
     """
     Represents a single interaction or step in the execution flow.
     
-    This data structure captures all necessary metadata to generate one line
-    of a Mermaid sequence diagram. It is passed from the tracing decorators
-    to the logging handler.
+    This data structure acts as the intermediate representation (IR) between
+    runtime code execution and the final Mermaid diagram output. Each instance
+    corresponds directly to one arrow or note in the sequence diagram.
+    
+    The fields map to Mermaid syntax components as follows:
+    `source` -> `target`: `message`
     
     Attributes:
-        source (str): The name of the participant initiating the action (caller).
-        target (str): The name of the participant receiving the action (callee).
-        action (str): A brief description of the action (e.g., function name).
-        message (str): The text to display on the diagram arrow.
-        timestamp (float): Unix timestamp of when the event occurred.
-        is_return (bool): True if this event represents a return from a function call.
-        is_error (bool): True if this event represents an exception/error.
-        error_message (Optional[str]): The error message if `is_error` is True.
-        params (Optional[str]): Stringified function arguments (for request events).
-        result (Optional[str]): Stringified return value (for response events).
+        source (str): 
+            The name of the participant initiating the action (the "Caller").
+            In Mermaid: The participant on the LEFT side of the arrow.
+            
+        target (str): 
+            The name of the participant receiving the action (the "Callee").
+            In Mermaid: The participant on the RIGHT side of the arrow.
+            
+        action (str): 
+            A short, human-readable name for the operation (e.g., function name).
+            Used for grouping or filtering logs, but often redundant with message.
+            
+        message (str): 
+            The actual text label displayed on the diagram arrow.
+            Example: "getUser(id=1)" or "Return: User(name='Alice')".
+            
+        timestamp (float): 
+            Unix timestamp (seconds) of when the event occurred.
+            Used for ordering events if logs are processed asynchronously, 
+            though Mermaid sequence diagrams primarily rely on line order.
+            
+        trace_id (str): 
+            Unique identifier for the trace session.
+            Allows filtering multiple concurrent traces from a single log file
+            to generate separate diagrams for separate requests.
+            
+        is_return (bool): 
+            Flag indicating if this is a response arrow.
+            If True, the arrow is drawn as a dotted line (`-->`) in Mermaid.
+            If False, it is a solid line (`->`) representing a call.
+            
+        is_error (bool): 
+            Flag indicating if an exception occurred.
+            If True, the arrow might be styled differently (e.g., `-x`) to show failure.
+            
+        error_message (Optional[str]): 
+            Detailed error text if `is_error` is True.
+            Can be added as a note or included in the arrow label.
+            
+        params (Optional[str]): 
+            Stringified representation of function arguments.
+            Captured only for request events (call start).
+            
+        result (Optional[str]): 
+            Stringified representation of the return value.
+            Captured only for return events (call end).
     """
     source: str
     target: str
     action: str
     message: str
+    trace_id: str
     timestamp: float = field(default_factory=time.time)
     is_return: bool = False
     is_error: bool = False
     error_message: Optional[str] = None
     params: Optional[str] = None
     result: Optional[str] = None
-    
-    def to_mermaid_line(self) -> str:
-        """
-        Converts this event into a valid Mermaid sequence diagram syntax line.
-        
-        Returns:
-            str: A string like "A->>B: message" or "B-->>A: return".
-        """
-        # Sanitize names to ensure they are valid Mermaid participant identifiers
-        # e.g., "My Class" -> "My_Class"
-        src = self._sanitize(self.source)
-        tgt = self._sanitize(self.target)
-        
-        # Determine arrow type
-        # ->> : Solid line with arrowhead (synchronous call)
-        # -->> : Dotted line with arrowhead (return)
-        # --x : Dotted line with cross (error)
-        arrow = "-->>" if self.is_return else "->>"
-        
-        # Format the message based on event type
-        if self.is_error:
-            arrow = "--x"
-            msg = f"Error: {self.error_message}"
-        elif self.is_return:
-            msg = f"Return: {self.result}" if self.result else "Return"
-        else:
-            # For requests, include parameters if available
-            msg = f"{self.message}({self.params})" if self.params else self.message
-            
-        return f"{src}{arrow}{tgt}: {msg}"
-
-    def _sanitize(self, name: str) -> str:
-        """
-        Replaces characters in participant names that might break Mermaid syntax.
-        
-        Args:
-            name (str): The raw participant name.
-            
-        Returns:
-            str: The sanitized name safe for Mermaid usage.
-        """
-        # Replace spaces, dots, and hyphens with underscores
-        return name.replace(" ", "_").replace(".", "_").replace("-", "_")
