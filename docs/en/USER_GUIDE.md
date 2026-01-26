@@ -1,5 +1,18 @@
 # User Guide
 
+## Table of Contents
+
+- [Introduction](#introduction)
+- [How It Works](#how-it-works)
+- [Concurrency & Trace IDs](#concurrency--trace-ids)
+- [Context Inference](#context-inference)
+- [Advanced Configuration](#advanced-configuration)
+  - [Async Mode (Performance)](#async-mode-performance)
+  - [Data Capture Control](#data-capture-control)
+  - [Explicit Naming](#explicit-naming)
+  - [Flexible Handler Configuration](#flexible-handler-configuration)
+- [CLI Viewer](#cli-viewer)
+
 ## Introduction
 
 MermaidTrace bridges the gap between code execution and architectural visualization. Unlike static analysis tools, it traces *actual* runtime calls, giving you a true picture of your system's behavior.

@@ -118,5 +118,5 @@ except PackageNotFoundError:
 
 
 # 导出公共 API 以方便访问
-__all__ = ["trace_interaction", "trace", "configure_flow", "MermaidFileHandler", "AsyncMermaidHandler", "LogContext", "FlowEvent", "MermaidFormatter"]
+__all__ = ["trace_interaction", "trace", "configure_flow", "MermaidFileHandler", "AsyncMermaidHandler", "LogContext", "Event", "FlowEvent", "BaseFormatter", "MermaidFormatter"]
 ```

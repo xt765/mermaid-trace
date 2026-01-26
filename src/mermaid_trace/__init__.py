@@ -29,9 +29,9 @@ Usage Example:
 from .core.decorators import trace_interaction, trace
 from .handlers.mermaid_handler import MermaidFileHandler
 from .handlers.async_handler import AsyncMermaidHandler
-from .core.events import FlowEvent
+from .core.events import Event, FlowEvent
 from .core.context import LogContext
-from .core.formatter import MermaidFormatter
+from .core.formatter import BaseFormatter, MermaidFormatter
 # We don't import integrations by default to avoid hard dependencies
 # Integrations (like FastAPI) must be imported explicitly by the user if needed.
 
@@ -126,6 +126,8 @@ __all__ = [
     "MermaidFileHandler",
     "AsyncMermaidHandler",
     "LogContext",
+    "Event",
     "FlowEvent",
+    "BaseFormatter",
     "MermaidFormatter",
 ]

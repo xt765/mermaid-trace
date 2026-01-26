@@ -1,3 +1,10 @@
+"""
+Command Line Interface Module
+
+This module provides command-line functionality for MermaidTrace, primarily for
+previewing generated Mermaid diagrams in a web browser with live reload capabilities.
+"""
+
 import argparse
 import http.server
 import socketserver
@@ -8,22 +15,21 @@ from pathlib import Path
 from typing import Type, Any
 
 try:
-    # Watchdog is an optional dependency that allows efficient file monitoring.
-    # If installed, we use it to detect file changes instantly.
+    # Watchdog is an optional dependency for efficient file monitoring
+    # If installed, it enables instant file change detection
     from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
 
     HAS_WATCHDOG = True
 except ImportError:
-    # Fallback for when watchdog is not installed (e.g., minimal install).
+    # Fallback when watchdog is not installed (minimal install case)
     HAS_WATCHDOG = False
 
-# HTML Template for the preview page
-# This template provides a self-contained environment to render Mermaid diagrams.
-# It includes:
-# 1. Mermaid.js library from CDN.
-# 2. CSS for basic styling and layout.
-# 3. JavaScript logic for auto-refreshing when the source file changes.
+# HTML Template for the diagram preview page
+# Provides a self-contained environment to render Mermaid diagrams with:
+# 1. Mermaid.js library from CDN for diagram rendering
+# 2. Basic CSS styling for readability and layout
+# 3. JavaScript for auto-refreshing when the source file changes
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -98,47 +104,59 @@ def _create_handler(
     filename: str, path: Path
 ) -> Type[http.server.SimpleHTTPRequestHandler]:
     """
-    Factory function to create a custom request handler class.
+    Factory function to create a custom HTTP request handler class.
 
     This uses a closure to inject `filename` and `path` into the handler's scope,
     allowing the `do_GET` method to access them without global variables.
 
     Args:
-        filename (str): Display name of the file.
-        path (Path): Path object to the file on disk.
+        filename (str): Display name of the file being served
+        path (Path): Path object pointing to the file on disk
 
     Returns:
-        Type[SimpleHTTPRequestHandler]: A custom handler class.
+        Type[SimpleHTTPRequestHandler]: A custom request handler class
     """
 
     class Handler(http.server.SimpleHTTPRequestHandler):
         """
-        Custom Request Handler to serve the generated HTML dynamically.
-        It intercepts GET requests to serve the constructed HTML instead of static files.
+        Custom HTTP Request Handler for serving Mermaid diagram previews.
+
+        This handler intercepts GET requests to:
+        - Serve the HTML wrapper with embedded diagram content at the root path ('/')
+        - Provide file modification time for live reload at '/_status'
+        - Fall back to default behavior for other paths
         """
 
         def log_message(self, format: str, *args: Any) -> None:
-            # Suppress default logging to keep console clean
-            # We only want to see application logs, not every HTTP request
+            """
+            Suppress default request logging to keep the console clean.
+
+            Only application logs are shown, not every HTTP request.
+            """
             pass
 
         def do_GET(self) -> None:
             """
-            Handle GET requests.
-            Serves the HTML wrapper for the root path ('/').
+            Handle GET requests for different paths.
+
+            Routes:
+            - '/'          : Serves HTML wrapper with embedded Mermaid content
+            - '/_status'   : Returns current file modification time for live reload
+            - other paths  : Falls back to default SimpleHTTPRequestHandler behavior
             """
             if self.path == "/":
+                # Serve the main HTML page with embedded diagram
                 self.send_response(200)
                 self.send_header("Content-type", "text/html")
                 self.end_headers()
 
                 try:
-                    # Read the current content of the mermaid file
+                    # Read current content of the Mermaid file
                     content = path.read_text(encoding="utf-8")
                     mtime = str(path.stat().st_mtime)
                 except Exception as e:
-                    # Fallback if reading fails (e.g., file locked)
-                    # Show the error directly in the diagram area
+                    # Fallback if reading fails (e.g., file locked, permission error)
+                    # Display error directly in the diagram area
                     content = f"sequenceDiagram\nNote right of Error: Failed to read file: {e}"
                     mtime = "0"
 
@@ -149,14 +167,15 @@ def _create_handler(
                 self.wfile.write(html.encode("utf-8"))
 
             elif self.path == "/_status":
-                # API endpoint for client-side polling.
-                # Returns the current modification time of the file.
+                # API endpoint for client-side polling
+                # Returns current file modification time as plain text
                 self.send_response(200)
                 self.send_header("Content-type", "text/plain")
                 self.end_headers()
                 try:
                     mtime = str(path.stat().st_mtime)
                 except OSError:
+                    # Fallback if file can't be accessed
                     mtime = "0"
                 self.wfile.write(mtime.encode("utf-8"))
 
@@ -169,35 +188,40 @@ def _create_handler(
 
 def serve(filename: str, port: int = 8000) -> None:
     """
-    Starts a local HTTP server to preview the Mermaid diagram.
+    Starts a local HTTP server to preview Mermaid diagrams in a web browser.
 
-    This function blocks the main thread and runs a TCP server.
-    It automatically opens the default web browser to the preview URL.
+    This function blocks the main thread while running a TCP server. It automatically
+    opens the default web browser to the preview URL and supports live reload when
+    the source .mmd file changes.
 
     Features:
-    - Serves the .mmd file wrapped in an HTML viewer.
-    - Uses Watchdog (if available) or client-side polling for live reloads.
-    - Gracefully handles shutdown on Ctrl+C.
+    - Serves .mmd files wrapped in an HTML viewer with Mermaid.js
+    - Live reload functionality using Watchdog (if available) or client-side polling
+    - Graceful shutdown handling on Ctrl+C
+    - Automatic browser opening
 
     Args:
-        filename (str): Path to the .mmd file to serve.
-        port (int): Port to bind the server to. Default is 8000.
+        filename (str): Path to the .mmd file to serve
+        port (int, optional): Port to bind the server to. Defaults to 8000.
     """
+    # Resolve the file path
     path = Path(filename)
     if not path.exists():
         print(f"Error: File '{filename}' not found.")
         sys.exit(1)
 
-    # Setup Watchdog if available
-    # Watchdog allows us to print console messages when the file changes.
-    # The actual browser reload is triggered by the client polling the /_status endpoint,
-    # but Watchdog gives immediate feedback in the terminal.
+    # Setup Watchdog file watcher if available
+    # Watchdog provides immediate file change notifications in the terminal
+    # The actual browser reload is handled by client-side polling
     observer = None
     if HAS_WATCHDOG:
 
         class FileChangeHandler(FileSystemEventHandler):
+            """Watchdog event handler for detecting changes to the served file"""
+
             def on_modified(self, event: Any) -> None:
-                # Filter for the specific file we are watching
+                """Called when a file is modified"""
+                # Filter only for modifications to our specific file
                 if not event.is_directory and os.path.abspath(event.src_path) == str(
                     path.resolve()
                 ):
@@ -212,50 +236,68 @@ def serve(filename: str, port: int = 8000) -> None:
             "Watchdog not installed. Falling back to polling mode (client-side only)."
         )
 
+    # Create the custom HTTP handler
     HandlerClass = _create_handler(filename, path)
 
+    # Print server information
     print(f"Serving {filename} at http://localhost:{port}")
     print("Press Ctrl+C to stop.")
 
-    # Open browser automatically to the server URL
+    # Automatically open the default web browser to the preview URL
     webbrowser.open(f"http://localhost:{port}")
 
     # Start the TCP server
-    # ThreadingTCPServer is used to handle multiple requests concurrently if needed,
-    # ensuring the browser polling doesn't block the initial load.
+    # Using ThreadingTCPServer to handle multiple requests concurrently
+    # This ensures browser polling doesn't block the initial page load
     with socketserver.ThreadingTCPServer(("", port), HandlerClass) as httpd:
         try:
+            # Serve forever until interrupted
             httpd.serve_forever()
         except KeyboardInterrupt:
+            # Handle Ctrl+C gracefully
             print("\nStopping server...")
+            # Stop the watchdog observer if it was started
             if observer:
                 observer.stop()
                 observer.join()
+            # Close the server
             httpd.server_close()
 
 
 def main() -> None:
     """
     Entry point for the CLI application.
-    Parses arguments and dispatches to the appropriate command handler.
-    """
-    parser = argparse.ArgumentParser(description="MermaidTrace CLI")
-    subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # 'serve' command definition
-    serve_parser = subparsers.add_parser(
-        "serve", help="Serve a Mermaid file in the browser"
+    Parses command-line arguments and dispatches to the appropriate command handler.
+    Currently supports only the 'serve' command for previewing Mermaid diagrams.
+    """
+    # Create argument parser
+    parser = argparse.ArgumentParser(
+        description="MermaidTrace CLI - Preview Mermaid diagrams in browser"
     )
-    serve_parser.add_argument("file", help="Path to the .mmd file")
+
+    # Add subparsers for different commands
+    subparsers = parser.add_subparsers(
+        dest="command", required=True, help="Available commands"
+    )
+
+    # Define 'serve' command for previewing diagrams
+    serve_parser = subparsers.add_parser(
+        "serve", help="Serve a Mermaid file in the browser with live reload"
+    )
+    serve_parser.add_argument("file", help="Path to the .mmd file to serve")
     serve_parser.add_argument(
         "--port", type=int, default=8000, help="Port to bind to (default: 8000)"
     )
 
+    # Parse arguments and execute command
     args = parser.parse_args()
 
     if args.command == "serve":
+        # Execute the serve command
         serve(args.file, args.port)
 
 
 if __name__ == "__main__":
+    # Run the main function when script is executed directly
     main()

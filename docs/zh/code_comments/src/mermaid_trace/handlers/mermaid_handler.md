@@ -71,27 +71,36 @@ class MermaidFileHandler(logging.FileHandler):
 
     def _write_header(self) -> None:
         """
-        写入初始 Mermaid 语法行。
+        写入初始 Mermaid 语法行到文件。
         
-        Mermaid JS 或 Live Editor 需要此设置才能渲染图表。
-        它定义了图表类型 (sequenceDiagram)、标题并启用自动编号。
+        此设置是 Mermaid JS 或 Live Editor 正确渲染图表所必需的。
+        它定义：
+        - 图表类型 (sequenceDiagram)
+        - 图表标题
+        - 步骤自动编号
+        
+        线程安全：使用处理器的内部锁来防止在 delay=True 时并发写入，
+        确保头部只被写入一次。
         """
-        # 如果可用，我们直接使用流，如果延迟则暂时打开
-        if self.stream:
-            self.stream.write("sequenceDiagram\n")
-            self.stream.write(f"    title {self.title}\n")
-            self.stream.write("    autonumber\n")
-            # Flush 确保头部立即写入磁盘，
-            # 这样即使程序紧接着崩溃，它也会出现。
-            self.flush()
-        else:
-            # 处理 'delay=True' 情况:
-            # 如果文件尚未打开，我们暂时打开它只是为了写入头部。
-            # 这确保了即使应用程序在第一条日志之前崩溃，文件也是有效的。
-            with open(self.baseFilename, self.mode, encoding=self.encoding) as f:
-                f.write("sequenceDiagram\n")
-                f.write(f"    title {self.title}\n")
-                f.write("    autonumber\n")
+        # 使用处理器的内部锁确保线程安全
+        with self.lock:
+            # 如果流可用，则直接写入，否则暂时打开
+            if self.stream:
+                # 流已经打开（delay=False 或已调用 emit()）
+                self.stream.write("sequenceDiagram\n")
+                self.stream.write(f"    title {self.title}\n")
+                self.stream.write("    autonumber\n")
+                # Flush 确保头部立即写入磁盘，
+                # 这样即使程序紧接着崩溃，它也会出现。
+                self.flush()
+            else:
+                # 处理 'delay=True' 情况：文件尚未打开
+                # 暂时打开文件只是为了写入头部
+                # 这确保了即使应用程序在第一条日志之前崩溃，文件也是有效的。
+                with open(self.baseFilename, self.mode, encoding=self.encoding) as f:
+                    f.write("sequenceDiagram\n")
+                    f.write(f"    title {self.title}\n")
+                    f.write("    autonumber\n")
 
     def emit(self, record: logging.LogRecord) -> None:
         """

@@ -43,13 +43,16 @@ class LogContext:
         """
         检索当前上下文字典。
         
-        如果在当前上下文中未设置上下文变量，它返回一个新的空字典。
-        这防止了 LookupError 并确保始终有一个有效的字典可用。
+        如果在当前上下文中未设置上下文变量，它会创建一个新的空字典，
+        将其设置到 contextvar 中，然后返回它。这防止了 LookupError 并确保始终
+        有一个有效的字典可用，同时解决了后续调用可能抛出异常的问题。
         """
         try:
             return cls._context_store.get()
         except LookupError:
-            return {}
+            empty_dict = {}
+            cls._context_store.set(empty_dict)
+            return empty_dict
 
     @classmethod
     def set(cls, key: str, value: Any) -> None:

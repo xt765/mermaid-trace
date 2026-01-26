@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-01-26
+
+### Added
+- **Abstract Event Model**: Introduced `Event` abstract base class and `BaseFormatter` interface for better extensibility and support for multiple output formats.
+- **Enhanced Async Handler**: Added queue size limit (`queue_size=1000`) with drop policy to prevent memory overflow in high-traffic scenarios.
+- **Improved Exception Handling**: Enhanced exception logging to include full stack traces and error details.
+
+### Fixed
+- **Context Loss Issue**: Fixed `LogContext._get_store()` method to properly initialize `contextvar` when no context exists, preventing subsequent `LookupError` exceptions.
+- **Concurrency Safety**: Added thread locks in `MermaidFileHandler._write_header()` to prevent race conditions when writing file headers with `delay=True`.
+
+### Improved
+- **Architecture Design**: Decoupled components by introducing abstract interfaces, reducing tight coupling between `FlowEvent` and Mermaid-specific formatting.
+- **Test Coverage**: Increased test coverage to 90.17% by adding comprehensive test cases for the new abstract classes.
+- **Code Maintainability**: Added detailed English annotations to all code files, improving readability and developer experience.
+
 ## [0.4.0] - 2026-01-26
 
 ### Added
