@@ -1,16 +1,41 @@
 # MermaidTrace: 能画图的 Python 日志工具
 
+🌐 **语言**: [English](README.md) | [中文](README_CN.md)
+
 [![PyPI version](https://img.shields.io/pypi/v/mermaid-trace.svg?style=flat-square&color=blue)](https://pypi.org/project/mermaid-trace/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/mermaid-trace.svg?style=flat-square&color=blue)](https://pypi.org/project/mermaid-trace/)
 [![License](https://img.shields.io/github/license/xt765/mermaid-trace?style=flat-square)](LICENSE)
 [![CI Status](https://img.shields.io/github/actions/workflow/status/xt765/mermaid-trace/ci.yml?style=flat-square&label=CI)](https://github.com/xt765/mermaid-trace/actions/workflows/ci.yml)
 [![Codecov](https://img.shields.io/codecov/c/github/xt765/mermaid-trace?style=flat-square&logo=codecov)](https://codecov.io/gh/xt765/mermaid-trace)
 
+---
+
+## 📋 概述
+
 **别再干读日志了。开始“看”懂它们吧。**
 
 MermaidTrace 是一个专业的日志工具，能从你的代码执行中自动生成 [Mermaid JS](https://mermaid.js.org/) 时序图。它非常适合可视化复杂的业务逻辑、微服务交互或异步流程。
 
-## ✨ 特性
+---
+
+## 📚 文档
+
+### 主要文档
+
+[用户指南](docs/zh/USER_GUIDE.md) · [API 参考](docs/zh/API.md) · [贡献指南](docs/zh/CONTRIBUTING.md) · [更新日志](docs/zh/CHANGELOG.md) · [许可证](docs/zh/LICENSE)
+
+### 代码注释文档
+
+| 类别               | 链接                                                                                                                                                                                                                                                                             |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **核心模块** | [Context](docs/zh/code_comments/src/mermaid_trace/core/context.md) · [Decorators](docs/zh/code_comments/src/mermaid_trace/core/decorators.md) · [Events](docs/zh/code_comments/src/mermaid_trace/core/events.md) · [Formatter](docs/zh/code_comments/src/mermaid_trace/core/formatter.md) |
+| **处理器**   | [Async Handler](docs/zh/code_comments/src/mermaid_trace/handlers/async_handler.md) · [Mermaid Handler](docs/zh/code_comments/src/mermaid_trace/handlers/mermaid_handler.md)                                                                                                           |
+| **集成**     | [FastAPI](docs/zh/code_comments/src/mermaid_trace/integrations/fastapi.md)                                                                                                                                                                                                          |
+| **其他**     | [init](docs/zh/code_comments/src/mermaid_trace/__init__.md) · [CLI](docs/zh/code_comments/src/mermaid_trace/cli.md)                                                                                                                                                         |
+
+---
+
+## ✨ 核心特性
 
 - **装饰器驱动**：只需在函数上添加 `@trace` 或 `@trace_interaction` 即可。
 - **自动绘图**：生成 `.mmd` 文件，可在 VS Code、GitHub 或 Mermaid Live Editor 中查看。
@@ -18,6 +43,8 @@ MermaidTrace 是一个专业的日志工具，能从你的代码执行中自动�
 - **上下文推断**：利用 `contextvars` 自动追踪嵌套调用并推断 `source`（调用方）参与者。
 - **FastAPI 集成**：内置中间件，实现零配置的 HTTP 请求追踪。
 - **CLI 工具**：内置查看器，可在浏览器中即时预览图表。
+
+---
 
 ## 🚀 快速开始
 
@@ -88,14 +115,13 @@ async def root():
 mermaid-trace serve my_flow.mmd
 ```
 
-## 📂 文档
-
-- [英文文档](docs/en/USER_GUIDE.md)
-- [中文文档](docs/zh/USER_GUIDE.md)
+---
 
 ## 🤝 贡献
 
 欢迎贡献！详情请参阅 [CONTRIBUTING.md](docs/zh/CONTRIBUTING.md)。
+
+---
 
 ## 📄 许可证
 

@@ -1,16 +1,30 @@
 # MermaidTrace: The Python Logger That Draws Diagrams
 
+🌐 **Language**: [English](README.md) | [中文](README_CN.md)
+
 [![PyPI version](https://img.shields.io/pypi/v/mermaid-trace.svg?style=flat-square&color=blue)](https://pypi.org/project/mermaid-trace/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/mermaid-trace.svg?style=flat-square&color=blue)](https://pypi.org/project/mermaid-trace/)
 [![License](https://img.shields.io/github/license/xt765/mermaid-trace?style=flat-square)](LICENSE)
 [![CI Status](https://img.shields.io/github/actions/workflow/status/xt765/mermaid-trace/ci.yml?style=flat-square&label=CI)](https://github.com/xt765/mermaid-trace/actions/workflows/ci.yml)
 [![Codecov](https://img.shields.io/codecov/c/github/xt765/mermaid-trace?style=flat-square&logo=codecov)](https://codecov.io/gh/xt765/mermaid-trace)
 
+---
+
+## 📋 Overview
+
 **Stop reading logs. Start watching them.**
 
 MermaidTrace is a specialized logging tool that automatically generates [Mermaid JS](https://mermaid.js.org/) sequence diagrams from your code execution. It's perfect for visualizing complex business logic, microservice interactions, or asynchronous flows.
 
-## ✨ Features
+---
+
+## 📚 Documentation
+
+[User Guide](docs/en/USER_GUIDE.md) · [API Reference](docs/en/API.md) · [Contributing Guidelines](docs/en/CONTRIBUTING.md) · [Changelog](docs/en/CHANGELOG.md) · [License](docs/en/LICENSE)
+
+---
+
+## ✨ Key Features
 
 - **Decorator-Driven**: Just add `@trace` or `@trace_interaction` to your functions.
 - **Auto-Diagramming**: Generates `.mmd` files that can be viewed in VS Code, GitHub, or Mermaid Live Editor.
@@ -18,6 +32,8 @@ MermaidTrace is a specialized logging tool that automatically generates [Mermaid
 - **Context Inference**: Automatically tracks nested calls and infers `source` participants using `contextvars`.
 - **FastAPI Integration**: Includes middleware for zero-config HTTP request tracing.
 - **CLI Tool**: Built-in viewer to preview diagrams in your browser.
+
+---
 
 ## 🚀 Quick Start
 
@@ -88,14 +104,13 @@ Visualize your generated `.mmd` files instantly:
 mermaid-trace serve my_flow.mmd
 ```
 
-## 📂 Documentation
-
-- [English Documentation](docs/en/USER_GUIDE.md)
-- [中文文档](README_CN.md)
+---
 
 ## 🤝 Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](docs/en/CONTRIBUTING.md) for details.
+
+---
 
 ## 📄 License
 
