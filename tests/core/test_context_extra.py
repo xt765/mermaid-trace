@@ -8,16 +8,6 @@ def test_context_empty_update():
     assert LogContext.get("test") is None
 
 
-def test_context_get_store():
-    """Test getting the complete context store"""
-    # This test covers the get_store method (line 110)
-    LogContext.set("test_key", "test_value")
-    store = LogContext._get_store()
-    assert isinstance(store, dict)
-    assert "test_key" in store
-    assert store["test_key"] == "test_value"
-
-
 def test_context_set_trace_id():
     """Test setting trace ID manually"""
     # This test covers the set_trace_id method (line 248)
@@ -35,7 +25,7 @@ def test_context_get_store():
     assert isinstance(store, dict)
     assert "test_key" in store
     assert store["test_key"] == "test_value"
-    
+
     # Verify it's a copy by modifying the original
     LogContext.set("test_key", "updated")
     store_copy = LogContext._get_store()

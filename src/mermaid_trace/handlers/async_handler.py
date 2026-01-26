@@ -64,15 +64,15 @@ class AsyncMermaidHandler(logging.handlers.QueueHandler):
     def emit(self, record: logging.LogRecord) -> None:
         """
         Emit a log record to the queue with a timeout and drop policy.
-        
+
         If the queue is full, this method will attempt to put the record with
         a short timeout. If that fails, it will drop the record and print a warning.
-        
+
         Args:
             record: The log record to emit
         """
         from typing import cast
-        
+
         try:
             # Try to put the record in the queue with a short timeout (0.1 seconds)
             # This prevents the main thread from blocking indefinitely if the queue is full
