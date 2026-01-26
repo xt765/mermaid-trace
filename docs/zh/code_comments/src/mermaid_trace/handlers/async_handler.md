@@ -113,7 +113,12 @@ class AsyncMermaidHandler(logging.handlers.QueueHandler):
         所有挂起的日志都被写入磁盘。
         """
         if self._listener:
-            # 停止监听器 - 这将处理队列中所有剩余的记录
-            self._listener.stop()
-            self._listener = None
+            try:
+                # 停止监听器 - 这将处理队列中所有剩余的记录
+                self._listener.stop()
+                self._listener = None
+            except queue.Full:
+                # 处理队列已满时尝试放入哨兵值的情况
+                # 监听器线程可能仍在处理，但我们可以安全退出
+                pass
 ```

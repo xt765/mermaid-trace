@@ -95,6 +95,11 @@ class AsyncMermaidHandler(logging.handlers.QueueHandler):
         are written to disk before the application terminates.
         """
         if self._listener:
-            # Stop the listener - this will process all remaining records in the queue
-            self._listener.stop()
-            self._listener = None
+            try:
+                # Stop the listener - this will process all remaining records in the queue
+                self._listener.stop()
+                self._listener = None
+            except queue.Full:
+                # Handle case where queue is full when trying to put sentinel value
+                # The listener thread may still be processing, but we can safely exit
+                pass

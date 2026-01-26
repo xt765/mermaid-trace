@@ -42,7 +42,7 @@ class LogContext:
     def _get_store(cls) -> Dict[str, Any]:
         """
         检索当前上下文字典。
-        
+![1769443810901](image/context/1769443810901.png)![1769443817389](image/context/1769443817389.png)![1769443818915](image/context/1769443818915.png)![1769443830665](image/context/1769443830665.png)![1769443835553](image/context/1769443835553.png)        
         如果在当前上下文中未设置上下文变量，它会创建一个新的空字典，
         将其设置到 contextvar 中，然后返回它。这防止了 LookupError 并确保始终
         有一个有效的字典可用，同时解决了后续调用可能抛出异常的问题。
@@ -50,7 +50,7 @@ class LogContext:
         try:
             return cls._context_store.get()
         except LookupError:
-            empty_dict = {}
+            empty_dict: Dict[str, Any] = {}
             cls._context_store.set(empty_dict)
             return empty_dict
 
