@@ -6,9 +6,11 @@ from mermaid_trace.handlers.async_handler import AsyncMermaidHandler
 
 
 def benchmark_handler(
-    tmp_path: Path, async_mode: bool, iterations: int = 1000
+    diagram_output_dir: Path, async_mode: bool, iterations: int = 1000
 ) -> float:
-    log_file = tmp_path / f"bench_{async_mode}.mmd"
+    log_file = diagram_output_dir / f"bench_{async_mode}.mmd"
+    if log_file.exists():
+        log_file.unlink()
     logger = configure_flow(str(log_file), async_mode=async_mode)
 
     # We want to measure the overhead on the MAIN THREAD.
@@ -32,14 +34,18 @@ def benchmark_handler(
     return end - start
 
 
-def test_performance_async_vs_sync(tmp_path: Path) -> None:
+def test_performance_async_vs_sync(diagram_output_dir: Path) -> None:
     # Run a small benchmark
     # Note: File I/O in sync mode is very slow, so difference should be huge.
 
     iterations = 500
 
-    sync_time = benchmark_handler(tmp_path, async_mode=False, iterations=iterations)
-    async_time = benchmark_handler(tmp_path, async_mode=True, iterations=iterations)
+    sync_time = benchmark_handler(
+        diagram_output_dir, async_mode=False, iterations=iterations
+    )
+    async_time = benchmark_handler(
+        diagram_output_dir, async_mode=True, iterations=iterations
+    )
 
     print(f"\nSync time: {sync_time:.4f}s")
     print(f"Async time: {async_time:.4f}s")
@@ -54,9 +60,11 @@ def test_performance_async_vs_sync(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_performance_async_overhead(tmp_path: Path) -> None:
+async def test_performance_async_overhead(diagram_output_dir: Path) -> None:
     # Measure overhead of tracing vs no tracing
-    log_file = tmp_path / "overhead.mmd"
+    log_file = diagram_output_dir / "overhead.mmd"
+    if log_file.exists():
+        log_file.unlink()
     logger = configure_flow(str(log_file), async_mode=True)
 
     def no_trace() -> int:

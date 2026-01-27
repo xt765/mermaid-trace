@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-01-27
+
+### Added
+- **List/Tuple Item Grouping**: Consecutive identical items in lists and tuples are now automatically grouped (e.g., `['a', 'a', 'a']` -> `['a' x 3]`), significantly reducing visual noise in diagrams when dealing with large collections of similar objects.
+
+### Improved
+- **Test Coverage**: Increased test coverage to **96.22%** by adding comprehensive test cases for edge cases in CLI, decorators, and handlers.
+- **Robustness**: Improved CLI error handling and live reload stability by fixing mock handling and ensuring proper cleanup.
+- **Documentation**: Synchronized all documentation across languages and updated comprehensive Chinese source code annotations for all modules.
+
+## [0.5.0] - 2026-01-27
+
+### Added
+- **Intelligent Collapsing**: Repetitive high-frequency calls are now automatically collapsed into a single arrow with a counter (e.g., `func (x10)`), preventing diagram bloat.
+- **Auto-Instrumentation**: Added `@trace_class` decorator to automatically trace all public methods in a class.
+- **Third-Party Patching**: Added `patch_object` utility to trace methods in external libraries (e.g., `requests.get`) without modifying their source.
+- **Global Configuration**: Introduced `MermaidConfig` system allowing global control over parameter capture, string limits, and recursion depth via code or environment variables.
+- **Full Stack Trace Capture**: Exceptions now capture the complete Python traceback, displayed as a Note in the Mermaid diagram for easier debugging.
+
+### Changed
+- **`configure_flow` API**: Updated to support `level`, `config_overrides`, and `queue_size` for more flexible initialization.
+- **Enhanced FastAPI Integration**: The middleware now captures and logs full stack traces for unhandled exceptions.
+
+### Improved
+- **Documentation**: Added comprehensive Chinese source code annotations for all modules.
+- **Test Coverage**: Maintained >93% coverage with new tests for collapsing and configuration logic.
+
+## [0.4.2] - 2026-01-27
+
+### Fixed
+- **Lazy Loading**: Fixed `MermaidFileHandler` to respect `delay=True`. File is now only created when the first log event is emitted, preventing empty files from being created unnecessarily.
+- **Naming Collisions**: Fixed `MermaidFormatter._sanitize` to handle naming collisions robustly (e.g., `User A` vs `User-A`) by ensuring unique Mermaid IDs.
+
+### Improved
+- **Code Cleanup**: Removed redundant getter methods in `Event` and `FlowEvent` in favor of Pythonic attribute access.
+- **Handler SRP**: Decoupled Mermaid header generation from `MermaidFileHandler` by moving logic to `MermaidFormatter.get_header()`.
+
 ## [0.4.1] - 2026-01-26
 
 ### Added

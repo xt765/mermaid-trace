@@ -126,9 +126,9 @@ def test_fastapi_error(caplog: Any) -> None:
     assert "Test Error" in records[1].flow_event.error_message
 
 
-def test_fastapi_file_output(tmp_path: Any) -> None:
+def test_fastapi_file_output(diagram_output_dir: Any) -> None:
     # Integration test for file output with Middleware
-    log_file = tmp_path / "api_flow.mmd"
+    log_file = diagram_output_dir / "api_flow.mmd"
     from mermaid_trace import configure_flow
 
     logger = configure_flow(str(log_file))
@@ -139,6 +139,9 @@ def test_fastapi_file_output(tmp_path: Any) -> None:
     try:
         client.get("/sync-ok", headers={"X-Source": "SyncClient"})
 
+        for h in logger.handlers:
+            h.flush()
+
         # Check file
         assert log_file.exists()
         content = log_file.read_text(encoding="utf-8")
@@ -146,4 +149,5 @@ def test_fastapi_file_output(tmp_path: Any) -> None:
         assert "TestAPI-->>SyncClient: Return" in content
     finally:
         for h in logger.handlers:
+            h.flush()
             h.close()

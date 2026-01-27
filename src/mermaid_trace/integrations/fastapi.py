@@ -1,14 +1,21 @@
 """
-FastAPI Integration Module
+FastAPI Integration Module for MermaidTrace.
 
-This module provides middleware for integrating MermaidTrace with FastAPI applications.
-It automatically traces HTTP requests and responses, converting them into Mermaid
-sequence diagram events.
+This module provides the middleware necessary to integrate MermaidTrace with
+FastAPI applications. It serves as the bridge between HTTP requests and the
+sequence diagram generation logic.
+
+Key functionalities include:
+- Middleware for intercepting all incoming HTTP requests.
+- Automatic extraction of tracing headers (X-Source, X-Trace-ID).
+- Initialization of logging context for request lifecycles.
+- Automatic logging of request start and response completion (success or error).
 """
 
 from typing import Any, TYPE_CHECKING
 import time
 import uuid
+import traceback
 
 from ..core.events import FlowEvent
 from ..core.context import LogContext
@@ -16,21 +23,21 @@ from ..core.decorators import get_flow_logger
 
 # Conditional imports to support optional FastAPI dependency
 if TYPE_CHECKING:
-    # For type checking only, import the actual FastAPI/Starlette types
+    # For static type checkers (mypy, pyright), import the actual types.
     from fastapi import Request, Response
     from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 else:
     try:
-        # Try to import FastAPI/Starlette at runtime
+        # Runtime import attempt for FastAPI and Starlette.
         from fastapi import Request, Response
         from starlette.middleware.base import (
             BaseHTTPMiddleware,
             RequestResponseEndpoint,
         )
     except ImportError:
-        # Handle the case where FastAPI/Starlette are not installed
-        # Define dummy types to prevent NameErrors at import time
-        # Instantiation will fail explicitly in __init__
+        # Fallback for when FastAPI is not installed in the environment.
+        # This prevents ImportErrors when importing this module without FastAPI.
+        # However, instantiating the middleware will still fail.
         BaseHTTPMiddleware = object  # type: ignore[misc,assignment]
         Request = Any  # type: ignore[assignment]
         Response = Any  # type: ignore[assignment]
@@ -41,12 +48,22 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
     """
     FastAPI Middleware to trace HTTP requests as interactions in the sequence diagram.
 
-    This middleware acts as the entry point for tracing web requests, handling:
-    1. Identification of the client (Source participant)
-    2. Logging of incoming requests
-    3. Initialization of the `LogContext` for the request lifecycle
-    4. Logging of responses or errors
-    5. Cleanup of context after request completion
+    This middleware wraps the entire request processing pipeline. It is responsible for
+    recording the initial interaction between an external client (Source) and this
+    service (Target).
+
+    Middleware Logic:
+    1.  **Request Interception**: Captures the request before it reaches any route handler.
+    2.  **Context Initialization**: Sets up the `LogContext` with the current service name
+        and trace ID, ensuring all internal function calls are correctly associated.
+    3.  **Event Logging**: Logs the "Request" event (Client -> API) and the corresponding
+        "Response" event (API -> Client).
+    4.  **Error Handling**: Captures exceptions, logs error events (API --x Client),
+        and re-raises them to standard error handlers.
+
+    Attributes:
+        app_name (str): The name of the current service/application. This name will
+                        appear as a participant in the generated Mermaid sequence diagram.
     """
 
     def __init__(self, app: Any, app_name: str = "FastAPI"):
@@ -54,19 +71,20 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
         Initialize the middleware.
 
         Args:
-            app: The FastAPI application instance
-            app_name: The name of this service to appear in the diagram (e.g., "UserAPI")
+            app (Any): The FastAPI application instance.
+            app_name (str): The name of this service to appear in the diagram (e.g., "UserAPI").
+                            Defaults to "FastAPI".
 
         Raises:
-            ImportError: If FastAPI/Starlette are not installed
+            ImportError: If FastAPI or Starlette is not installed in the current environment.
         """
-        # Check if FastAPI is installed by verifying BaseHTTPMiddleware is not our dummy object
+        # Validate that the necessary dependencies are present.
         if BaseHTTPMiddleware is object:  # type: ignore[comparison-overlap]
             raise ImportError(
                 "FastAPI/Starlette is required to use MermaidTraceMiddleware"
             )
 
-        # Initialize the parent BaseHTTPMiddleware
+        # Initialize the base class.
         super().__init__(app)
         self.app_name = app_name
 
@@ -74,62 +92,88 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
         """
-        Intercepts and processes incoming HTTP requests.
+        Dispatch method to handle the incoming request.
 
-        This method is called for each incoming request and handles the full
-        request-response cycle tracing.
+        This is the core logic of the middleware. It wraps the `call_next` execution
+        with tracing logic.
+
+        Request Tracing & Header Handling:
+        - **X-Source**: Used to identify the caller. If present, the diagram will show
+          an arrow from `X-Source` to `app_name`. If missing, defaults to "Client".
+        - **X-Trace-ID**: Used for distributed tracing. If provided, it links this
+          request to an existing trace. If missing, a new UUID is generated.
 
         Args:
-            request (Request): The incoming HTTP request object
-            call_next (RequestResponseEndpoint): Function to call the next middleware or endpoint
+            request (Request): The incoming HTTP request object.
+            call_next (RequestResponseEndpoint): A callable that invokes the next
+                                                 middleware or the route handler.
 
         Returns:
-            Response: The HTTP response object
+            Response: The HTTP response generated by the application.
         """
-        # 1. Determine Source (Client participant)
-        # Try to get a specific ID from X-Source header (useful for distributed tracing),
-        # otherwise fallback to "Client"
+        # ----------------------------------------------------------------------
+        # 1. Header Handling and Metadata Extraction
+        # ----------------------------------------------------------------------
+
+        # Determine the source participant (Who is calling us?).
+        # If the request comes from another service traced by MermaidTrace,
+        # it might include the 'X-Source' header.
         source = request.headers.get("X-Source", "Client")
 
-        # 2. Determine Trace ID
-        # Check for X-Trace-ID header (for distributed tracing) or generate new UUID
+        # Determine the unique Trace ID.
+        # This ID is critical for grouping all logs related to a single request flow.
         trace_id = request.headers.get("X-Trace-ID") or str(uuid.uuid4())
 
-        # 3. Determine Action name
-        # Format: "METHOD /path" (e.g., "GET /users", "POST /items")
+        # Define the action name for the diagram arrow.
+        # Format: "METHOD /path" (e.g., "GET /api/v1/users")
         action = f"{request.method} {request.url.path}"
 
+        # Get the configured logger for flow events.
         logger = get_flow_logger()
 
-        # 4. Log Request (Source -> App)
-        # Create and log the initial request event
+        # ----------------------------------------------------------------------
+        # 2. Log Request Start (Source -> App)
+        # ----------------------------------------------------------------------
+
+        # Create the 'Request' event representing the call coming into this service.
         req_event = FlowEvent(
             source=source,
             target=self.app_name,
             action=action,
             message=action,
+            # Include query parameters in the note if they exist.
             params=f"query={request.query_params}" if request.query_params else None,
             trace_id=trace_id,
         )
+
+        # Log the event. This writes the JSON entry that the visualizer will parse.
         logger.info(
             f"{source}->{self.app_name}: {action}", extra={"flow_event": req_event}
         )
 
-        # 5. Set Context and Process Request
-        # Use async context manager to set the current participant to the app name
-        # This context will be inherited by all code called within call_next()
+        # ----------------------------------------------------------------------
+        # 3. Context Setup and Request Processing
+        # ----------------------------------------------------------------------
+
+        # Initialize the LogContext for this async task.
+        # Any 'traced' function called within this block will inherit 'trace_id'
+        # and see 'participant' as self.app_name.
         async with LogContext.ascope(
             {"participant": self.app_name, "trace_id": trace_id}
         ):
             start_time = time.time()
             try:
-                # Pass control to the next middleware or endpoint
-                # This executes the actual route logic and returns the response
+                # Process the request by calling the next item in the middleware chain.
                 response = await call_next(request)
 
-                # 6. Log Success Response (App -> Source)
-                # Calculate execution duration in milliseconds
+                # ------------------------------------------------------------------
+                # 4. Log Success Response (App -> Source)
+                # ------------------------------------------------------------------
+
+                # Calculate execution time for performance insights.
                 duration = (time.time() - start_time) * 1000
+
+                # Create the 'Return' event (dashed line back to caller).
                 resp_event = FlowEvent(
                     source=self.app_name,
                     target=source,
@@ -146,9 +190,17 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
                 return response
 
             except Exception as e:
-                # 7. Log Error Response (App --x Source)
-                # This captures unhandled exceptions that bubble up to the middleware
-                # Note: FastAPI's ExceptionHandlers might catch some exceptions before they reach here
+                # ------------------------------------------------------------------
+                # 5. Log Error Response (App --x Source)
+                # ------------------------------------------------------------------
+
+                # Capture full stack trace for the error.
+                stack_trace = "".join(
+                    traceback.format_exception(type(e), e, e.__traceback__)
+                )
+
+                # If an unhandled exception occurs, log it as an error event.
+                # This will render as a cross (X) on the sequence diagram return arrow.
                 err_event = FlowEvent(
                     source=self.app_name,
                     target=source,
@@ -157,10 +209,13 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
                     is_return=True,
                     is_error=True,
                     error_message=str(e),
+                    stack_trace=stack_trace,
                     trace_id=trace_id,
                 )
                 logger.error(
                     f"{self.app_name}-x{source}: Error", extra={"flow_event": err_event}
                 )
-                # Re-raise the exception to maintain normal error handling flow
+
+                # Re-raise the exception so FastAPI's exception handlers can take over.
+                # We strictly monitor the flow here, not swallow errors.
                 raise

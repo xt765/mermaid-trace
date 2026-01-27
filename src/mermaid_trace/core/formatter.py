@@ -9,7 +9,7 @@ with additional formatters for other diagram types or logging formats.
 import logging
 import re
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Dict, Set, Any, List, Tuple
 from .events import Event, FlowEvent
 
 
@@ -34,6 +34,19 @@ class BaseFormatter(ABC, logging.Formatter):
 
         Returns:
             str: Formatted string representation of the event
+        """
+        pass
+
+    @abstractmethod
+    def get_header(self, title: str) -> str:
+        """
+        Get the file header for the diagram format.
+
+        Args:
+            title: The title of the diagram
+
+        Returns:
+            str: Header string
         """
         pass
 
@@ -71,68 +84,213 @@ class MermaidFormatter(BaseFormatter):
     sequence diagram.
     """
 
-    def format_event(self, event: Event) -> str:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        # Map raw participant names to sanitized Mermaid IDs
+        self._participant_map: Dict[str, str] = {}
+        # Set of already used Mermaid IDs to prevent collisions
+        self._used_ids: Set[str] = set()
+
+        # State for intelligent collapsing
+        # We track a window of events to detect patterns (length 1 or 2)
+        self._event_buffer: List[FlowEvent] = []
+        self._pattern_count: int = 0
+        self._current_pattern: List[Tuple[str, str, str, bool]] = []
+
+    def format(self, record: logging.LogRecord) -> str:
+        """
+        Format a logging record containing an event.
+
+        If the record contains a FlowEvent, it will be buffered for pattern-based collapsing.
+        To get immediate output for tests, you can call flush() after format().
+        """
+        event: Optional[Event] = getattr(record, "flow_event", None)
+
+        if not event or not isinstance(event, FlowEvent):
+            return super().format(record)
+
+        # Create a key for this event type
+        event_key = (event.source, event.target, event.action, event.is_return)
+
+        # Case 1: Already in a pattern
+        if self._current_pattern:
+            pattern_len = len(self._current_pattern)
+            match_idx = len(self._event_buffer) % pattern_len
+
+            if event_key == self._current_pattern[match_idx]:
+                # It matches!
+                self._event_buffer.append(event)
+                if match_idx == pattern_len - 1:
+                    self._pattern_count += 1
+                return ""
+            else:
+                # Pattern broken! Flush and continue to find new pattern
+                output = self.flush()
+                prefix = output + "\n" if output else ""
+
+                self._event_buffer = [event]
+                return prefix.strip()
+
+        # Case 2: Not in a pattern yet, but have one event buffered
+        if self._event_buffer:
+            first = self._event_buffer[0]
+            first_key = (first.source, first.target, first.action, first.is_return)
+
+            if event_key == first_key:
+                # Pattern length 1 detected (A, A)
+                self._current_pattern = [first_key]
+                self._event_buffer.append(event)
+                self._pattern_count = 2
+                return ""
+            elif (
+                event.is_return
+                and event.source == first.target
+                and event.target == first.source
+                and event.action == first.action
+            ):
+                # Pattern length 2 detected (Call, Return)
+                self._current_pattern = [first_key, event_key]
+                self._event_buffer.append(event)
+                self._pattern_count = 1
+                return ""
+            else:
+                # No pattern, flush first event and keep current as new potential start
+                output = self.format_event(first, 1)
+                self._event_buffer = [event]
+                return output.strip()
+
+        # Case 3: Completely idle
+        # To avoid breaking existing tests that expect immediate output for single events,
+        # we check if we can immediately format it. But for true collapsing, we need buffering.
+        # Strategy: we buffer it, but if it's the ONLY event, flush() must be called.
+        # To maintain compatibility with tests, we'll keep buffering but update tests
+        # or change logic to only buffer if we suspect a pattern.
+        # Actually, the most robust way is to update the tests/handlers to call flush.
+        self._event_buffer = [event]
+        return ""
+
+    def flush(self) -> str:
+        """
+        Flushes the current collapsed pattern and returns its Mermaid representation.
+        """
+        if not self._event_buffer:
+            return ""
+
+        output_lines = []
+
+        if self._current_pattern:
+            pattern_len = len(self._current_pattern)
+            # Only output one instance of the pattern, but with the total count
+            for i in range(pattern_len):
+                event = self._event_buffer[i]
+                line = self.format_event(event, self._pattern_count)
+                output_lines.append(line)
+        else:
+            # Just some buffered events that didn't form a pattern
+            for event in self._event_buffer:
+                output_lines.append(self.format_event(event, 1))
+
+        # Reset state
+        self._event_buffer = []
+        self._current_pattern = []
+        self._pattern_count = 0
+
+        return "\n".join(output_lines)
+
+    def get_header(self, title: str = "Log Flow") -> str:
+        """
+        Returns the Mermaid sequence diagram header.
+        """
+        return f"sequenceDiagram\n    title {title}\n    autonumber\n\n"
+
+    def format_event(self, event: Event, count: int = 1) -> str:
         """
         Converts an Event into a Mermaid syntax string.
 
         Args:
             event: The Event object to format
+            count: Number of times this event was repeated (for collapsing)
 
         Returns:
             str: Mermaid syntax string representation of the event
         """
         if not isinstance(event, FlowEvent):
             # Fallback format for non-FlowEvent types
-            return f"{event.get_source()}->>{event.get_target()}: {event.get_message()}"
+            return f"{event.source}->>{event.target}: {event.message}"
 
         # Sanitize participant names to avoid syntax errors in Mermaid
         src = self._sanitize(event.source)
         tgt = self._sanitize(event.target)
 
-        # Determine arrow type based on event properties
-        # ->> : Solid line with arrowhead (synchronous call)
-        # -->> : Dotted line with arrowhead (return)
-        # --x : Dotted line with cross (error)
+        # Determine arrow type
         arrow = "-->>" if event.is_return else "->>"
 
-        # Construct message text based on event type
+        # Construct message text
         msg = ""
         if event.is_error:
             arrow = "--x"
             msg = f"Error: {event.error_message}"
         elif event.is_return:
-            # For return events, show return value or just "Return"
             msg = f"Return: {event.result}" if event.result else "Return"
         else:
-            # For call events, show Action(Params) or just Action
             msg = f"{event.message}({event.params})" if event.params else event.message
 
-        # Escape message for Mermaid safety (e.g., replacing newlines)
+        # Append count if collapsed
+        if count > 1:
+            msg += f" (x{count})"
+
+        # Escape message for Mermaid safety
         msg = self._escape_message(msg)
 
         # Return the complete Mermaid syntax line
-        # Format: Source->>Target: Message
-        return f"{src}{arrow}{tgt}: {msg}"
+        line = f"{src}{arrow}{tgt}: {msg}"
+
+        # Add Notes for Errors (Stack Trace)
+        if event.is_error and event.stack_trace:
+            short_stack = self._escape_message(event.stack_trace[:300] + "...")
+            note = f"note right of {tgt}: {short_stack}"
+            return f"{line}\n{note}"
+
+        # Handle manually marked collapsed events (if any)
+        if event.collapsed and count == 1:
+            note = f"note right of {src}: ( Sampled / Collapsed Interaction )"
+            return f"{line}\n{note}"
+
+        return line
 
     def _sanitize(self, name: str) -> str:
         """
         Sanitizes participant names to be valid Mermaid identifiers.
-
-        Mermaid doesn't like spaces or special characters in participant aliases
-        unless they are quoted (which we are not doing here for simplicity),
-        so we replace them with underscores.
+        Handles naming collisions by ensuring unique IDs.
 
         Args:
             name: Original participant name
 
         Returns:
-            str: Sanitized participant name
+            str: Sanitized participant name (unique)
         """
+        if name in self._participant_map:
+            return self._participant_map[name]
+
         # Replace any non-alphanumeric character (except underscore) with underscore
         clean_name = re.sub(r"[^a-zA-Z0-9_]", "_", name)
         # Ensure it doesn't start with a digit (Mermaid doesn't like that sometimes)
         if clean_name and clean_name[0].isdigit():
             clean_name = "_" + clean_name
+
+        if not clean_name:
+            clean_name = "Unknown"
+
+        # Check for collisions
+        if clean_name in self._used_ids:
+            original_clean = clean_name
+            counter = 1
+            while clean_name in self._used_ids:
+                clean_name = f"{original_clean}_{counter}"
+                counter += 1
+
+        self._participant_map[name] = clean_name
+        self._used_ids.add(clean_name)
         return clean_name
 
     def _escape_message(self, msg: str) -> str:

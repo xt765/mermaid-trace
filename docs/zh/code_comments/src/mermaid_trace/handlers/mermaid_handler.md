@@ -1,119 +1,139 @@
 # 文件: src/mermaid_trace/handlers/mermaid_handler.py
 
 ## 概览
-本文件实现了 `MermaidFileHandler`，这是一个专门用于写入 `.mmd` 文件的日志处理器。它继承自 Python 标准库的 `logging.FileHandler`，从而复用了其健壮的文件锁定和缓冲机制。
+`mermaid_handler.py` 模块提供了一个自定义的日志处理器 `MermaidFileHandler`。它的主要职责是将追踪到的事件持久化到 `.mmd` 文件中，并确保生成的每一份文件都是符合 Mermaid 语法的合法文档。
 
 ## 核心功能分析
 
-### Header 管理策略
-Mermaid 文件必须以特定的 Header（如 `sequenceDiagram`）开头才能被正确渲染。
--   **覆盖模式 ('w')**: 总是写入 Header。
--   **追加模式 ('a')**: 仅当文件不存在或为空时写入 Header。这防止了在追加日志时重复写入 Header，导致生成无效的 Mermaid 文件。
--   **延迟写入 (delay=True)**: 如果启用了延迟打开，它会等到第一条日志到来时才检查并写入 Header。
+### 1. `MermaidFileHandler` 类
+继承自标准库的 `logging.FileHandler`，从而复用了成熟的线程安全写入和缓冲机制。
 
-### 性能优化
-在 `emit` 方法中，它首先检查日志记录是否有 `flow_event` 属性。这是一个快速过滤机制：如果某些标准库日志（如 `requests` 或 `urllib` 的调试日志）意外进入了这个 Handler，它们会被直接忽略，从而避免不必要的格式化开销和文件污染。
+- **设计策略**:
+    - **自动头部管理**: 在写入第一条日志前，它会自动检查文件状态。如果是新文件或空文件（`tell() == 0`），会先写入 Mermaid 的头部定义（如 `sequenceDiagram`, `title`, `autonumber`）。
+    - **延迟初始化**: 支持 `delay=True`。这意味着只有在产生第一条追踪日志时才会真正创建或打开文件，避免产生空的 `.mmd` 文件。
+    - **目录自动创建**: 在初始化时会自动检查并创建目标文件所在的目录。
+    - **换行符管理**: 显式设置 `self.terminator = "\n"`，确保在所有平台（包括 Windows）上生成的 Mermaid 文件都能保持正确的行分割，防止语法错误。
+
+### 2. 关键方法
+- **`_write_header`**: 负责写入图表起始语法。它会优先尝试调用格式化程序 (`formatter`) 的 `get_header` 方法，这允许不同的格式化程序定制自己的头部。
+- **`emit`**: 核心写入逻辑。
+    - 检查 `LogRecord` 是否包含 `flow_event`。
+    - 检查当前文件指针位置。如果是 0，则调用 `_write_header`。
+    - 调用 `self.format(record)` 获取格式化后的字符串。注意：如果 `MermaidFormatter` 正在折叠事件，此处可能返回空字符串，此时处理器不执行写入。
+- **`flush`**: 
+    - 这是一个增强版的刷新方法。它首先会尝试调用格式化程序的 `flush()` 方法。
+    - **为什么？**: 因为智能折叠机制会缓冲事件。当我们需要确保所有交互都已写入磁盘（例如在程序结束前）时，必须先将 Formatter 缓冲区中最后的折叠块“挤”出来并写入文件。
+- **`close`**: 在关闭文件前显式调用 `flush()`，确保所有缓冲数据不丢失。
 
 ## 源代码与中文注释
 
 ```python
+"""
+Mermaid 文件处理器模块
+
+本模块提供一个自定义日志处理器，将 FlowEvent 对象写入 Mermaid (.mmd) 文件。
+它负责 Mermaid 语法格式化、文件头处理，并确保线程安全的文件写入。
+"""
+
 import logging
 import os
 
+
 class MermaidFileHandler(logging.FileHandler):
     """
-    自定义日志处理器，将 `FlowEvent` 对象写入 Mermaid (.mmd) 文件。
-    
-    策略与优化:
-    1. **继承**: 继承自 `logging.FileHandler` 以利用标准库提供的健壮、
-       线程安全的文件写入能力（锁定、缓冲）。
-    2. **头部管理**: 自动处理 Mermaid 文件头
-       (`sequenceDiagram`, `title`, `autonumber`) 以确保输出文件
-       是有效的 Mermaid 文档。它智能地检测文件是新建的还是被追加的。
-    3. **延迟格式化**: 实际的字符串转换发生在 `emit` 方法中
-       （通过格式化程序），使处理器专注于 I/O。
+    一个自定义日志处理器，将 `FlowEvent` 对象写入 Mermaid (.mmd) 文件。
+
+    策略与优化：
+    1. 继承：继承自 `logging.FileHandler`，利用标准库提供的稳健、线程安全的文件写入能力。
+    2. 头部管理：自动处理 Mermaid 文件头，确保输出文件是合法的 Mermaid 文档。
+    3. 延迟初始化：文件打开和头部写入会推迟到发出第一条日志时，支持 `delay=True`。
+    4. 智能刷新：与有状态的格式化程序配合，确保折叠的事件能被正确刷出。
     """
-    
-    def __init__(self, filename: str, title: str = "Log Flow", mode: str = 'a', encoding: str = 'utf-8', delay: bool = False):
+
+    def __init__(
+        self,
+        filename: str,
+        title: str = "Log Flow",
+        mode: str = "a",
+        encoding: str = "utf-8",
+        delay: bool = False,
+    ):
         """
-        初始化处理器。
-        
-        参数:
-            filename (str): 输出 .mmd 文件的路径。
-            title (str): Mermaid 图表的标题（写入头部）。
-            mode (str): 文件打开模式。'w' (覆盖) 或 'a' (追加)。
-            encoding (str): 文件编码。默认为 'utf-8'。
-            delay (bool): 如果为 True，文件打开推迟到第一次调用 emit。
-                          用于避免在没有发生日志记录时创建空文件。
+        初始化 Mermaid 文件处理器。
         """
-        # 确保目录存在以防止打开时出现 FileNotFoundError
+        # 确保目录存在，防止打开文件时抛出 FileNotFoundError
         os.makedirs(os.path.dirname(os.path.abspath(filename)) or ".", exist_ok=True)
-        
-        # 头部策略:
-        # 我们仅在以下情况下需要写入 "sequenceDiagram" 前言:
-        # 1. 我们正在覆盖文件 (mode='w')。
-        # 2. 我们正在追加 (mode='a')，但文件不存在或为空。
-        # 这可以防止无效的 Mermaid 文件（例如，多个 "sequenceDiagram" 行）。
-        should_write_header = False
-        if mode == 'w':
-            should_write_header = True
-        elif mode == 'a':
-            if not os.path.exists(filename) or os.path.getsize(filename) == 0:
-                should_write_header = True
-        
-        # 初始化标准 FileHandler（除非 delay=True，否则打开文件）
+
         super().__init__(filename, mode, encoding, delay)
         self.title = title
-        
-        # 如果需要，立即写入头部。
-        if should_write_header:
-            self._write_header()
+        # 显式设置换行符，确保 Mermaid 语法行分割正确
+        self.terminator = "\n"
 
     def _write_header(self) -> None:
         """
-        写入初始 Mermaid 语法行到文件。
-        
-        此设置是 Mermaid JS 或 Live Editor 正确渲染图表所必需的。
-        它定义：
-        - 图表类型 (sequenceDiagram)
-        - 图表标题
-        - 步骤自动编号
-        
-        线程安全：使用处理器的内部锁来防止在 delay=True 时并发写入，
-        确保头部只被写入一次。
+        向文件写入初始的 Mermaid 语法行。
         """
-        # 使用处理器的内部锁确保线程安全
-        with self.lock:
-            # 如果流可用，则直接写入，否则暂时打开
-            if self.stream:
-                # 流已经打开（delay=False 或已调用 emit()）
-                self.stream.write("sequenceDiagram\n")
-                self.stream.write(f"    title {self.title}\n")
-                self.stream.write("    autonumber\n")
-                # Flush 确保头部立即写入磁盘，
-                # 这样即使程序紧接着崩溃，它也会出现。
-                self.flush()
-            else:
-                # 处理 'delay=True' 情况：文件尚未打开
-                # 暂时打开文件只是为了写入头部
-                # 这确保了即使应用程序在第一条日志之前崩溃，文件也是有效的。
-                with open(self.baseFilename, self.mode, encoding=self.encoding) as f:
-                    f.write("sequenceDiagram\n")
-                    f.write(f"    title {self.title}\n")
-                    f.write("    autonumber\n")
+        # 默认头部定义
+        header = f"sequenceDiagram\n    title {self.title}\n    autonumber\n\n"
+
+        # 如果关联的格式化程序提供了定制头部，则优先使用
+        if self.formatter and hasattr(self.formatter, "get_header"):
+            try:
+                header = self.formatter.get_header(self.title)
+                # 安全检查：确保头部以换行符结尾，防止与第一条日志粘连
+                if not header.endswith("\n"):
+                    header += "\n"
+            except Exception:
+                pass
+
+        if self.stream:
+            self.stream.write(header)
+            # 立即刷新，确保头部先行写入磁盘
+            self.stream.flush()
 
     def emit(self, record: logging.LogRecord) -> None:
         """
-        处理日志记录。
-        
-        优化:
-        - 首先检查 `flow_event` 属性。这允许此处理器
-          附加到根日志记录器而不处理不相关的系统日志。
-          它充当格式化之前的高性能过滤器。
-        - 将实际写入委托给 `super().emit()`，它安全地处理
-          线程锁定和流刷新。
+        处理日志记录并将其写入 Mermaid 文件。
         """
-        # 仅处理包含我们结构化 FlowEvent 数据的记录
-        if hasattr(record, 'flow_event'):
-            super().emit(record)
+        # 只处理包含结构化追踪数据的记录
+        if hasattr(record, "flow_event"):
+            # 确保文件流已打开（处理 delay=True 的情况）
+            if self.stream is None:
+                self.stream = self._open()
+
+            # 检查是否需要写入头部（仅对空文件写入一次）
+            if self.stream.tell() == 0:
+                self._write_header()
+
+            # 调用格式化程序。注意：对于正在折叠的重复调用，msg 可能为空字符串。
+            msg = self.format(record)
+            if msg:
+                if self.stream:
+                    # 写入格式化后的行，并追加换行符
+                    self.stream.write(msg + self.terminator)
+                    # 注意：此处不调用 self.flush() 是为了性能考虑，
+                    # 真正的刷新由系统缓冲区或显式的 flush() 调用完成。
+
+    def flush(self) -> None:
+        """
+        强制刷新文件流，并确保格式化程序中的缓冲事件也被写出。
+        """
+        # 1. 首先尝试从有状态的格式化程序中“挤出”最后缓冲的事件
+        if self.formatter and hasattr(self.formatter, "flush"):
+            try:
+                msg = self.formatter.flush()
+                if msg and self.stream:
+                    self.stream.write(msg + self.terminator)
+            except Exception:
+                pass
+
+        # 2. 调用标准库的 flush 确保数据从 OS 缓冲区写入物理磁盘
+        super().flush()
+
+    def close(self) -> None:
+        """
+        安全关闭处理器，确保所有缓冲数据已持久化。
+        """
+        self.flush()
+        super().close()
 ```

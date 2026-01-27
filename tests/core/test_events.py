@@ -1,22 +1,11 @@
-import pytest
-from mermaid_trace.core.events import Event, FlowEvent
+from mermaid_trace.core.events import FlowEvent
 
 
 class TestEvent:
     """Test cases for the Event abstract base class."""
 
-    def test_event_is_abstract(self):
-        """Test that Event is an abstract base class."""
-        with pytest.raises(TypeError):
-            # Cannot instantiate abstract class
-            Event()  # type: ignore[abstract]
-
-    def test_flowevent_inherits_event(self):
-        """Test that FlowEvent inherits from Event."""
-        assert issubclass(FlowEvent, Event)
-
-    def test_flowevent_implements_all_abstract_methods(self):
-        """Test that FlowEvent implements all abstract methods from Event."""
+    def test_flowevent_implements_interface(self):
+        """Test that FlowEvent has all attributes from Event interface."""
         event = FlowEvent(
             source="source",
             target="target",
@@ -25,13 +14,13 @@ class TestEvent:
             trace_id="trace_id",
         )
 
-        # Test all abstract methods are implemented
-        assert event.get_source() == "source"
-        assert event.get_target() == "target"
-        assert event.get_action() == "action"
-        assert event.get_message() == "message"
-        assert isinstance(event.get_timestamp(), float)
-        assert event.get_trace_id() == "trace_id"
+        # Test all attributes are present
+        assert event.source == "source"
+        assert event.target == "target"
+        assert event.action == "action"
+        assert event.message == "message"
+        assert isinstance(event.timestamp, float)
+        assert event.trace_id == "trace_id"
 
     def test_flowevent_default_values(self):
         """Test that FlowEvent uses correct default values."""

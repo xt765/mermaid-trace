@@ -14,24 +14,6 @@ class NonFlowEvent(Event):
         self.trace_id = "test-trace-id"
         self.action = "test-action"
 
-    def get_source(self) -> str:
-        return self.source
-
-    def get_target(self) -> str:
-        return self.target
-
-    def get_action(self) -> str:
-        return self.action
-
-    def get_message(self) -> str:
-        return self.message
-
-    def get_timestamp(self) -> float:
-        return self.timestamp
-
-    def get_trace_id(self) -> str:
-        return self.trace_id
-
 
 def test_base_formatter_format_fallback():
     """Test that BaseFormatter.format falls back to parent method when no flow_event"""

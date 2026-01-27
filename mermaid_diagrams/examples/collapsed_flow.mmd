@@ -1,0 +1,8 @@
+sequenceDiagram
+    title Log Flow
+    autonumber
+
+Manager->>Processor: Run Loop
+Processor->>Worker: Process Item(0) (x50)
+Worker-->>Processor: Return: 0 (x50)
+Processor-->>Manager: Return: None

@@ -12,7 +12,8 @@ def test_formatter_basic() -> None:
     record = logging.LogRecord("name", logging.INFO, "path", 1, "msg", None, None)
     record.flow_event = event
 
-    line = formatter.format(record)
+    formatter.format(record)
+    line = formatter.flush()
     assert line == "Client->>Server: GET /"
 
 
@@ -28,7 +29,8 @@ def test_formatter_sanitize() -> None:
     record = logging.LogRecord("name", logging.INFO, "path", 1, "msg", None, None)
     record.flow_event = event
 
-    line = formatter.format(record)
+    formatter.format(record)
+    line = formatter.flush()
     # Spaces -> _, Dots -> _, Hyphens -> _ (via regex \W -> _)
     assert "My_Client->>My_Server_1" in line
 
@@ -47,7 +49,8 @@ def test_formatter_return() -> None:
     record = logging.LogRecord("name", logging.INFO, "path", 1, "msg", None, None)
     record.flow_event = event
 
-    line = formatter.format(record)
+    formatter.format(record)
+    line = formatter.flush()
     assert line == "Server-->>Client: Return: 200 OK"
 
 
@@ -65,7 +68,8 @@ def test_formatter_error() -> None:
     record = logging.LogRecord("name", logging.INFO, "path", 1, "msg", None, None)
     record.flow_event = event
 
-    line = formatter.format(record)
+    formatter.format(record)
+    line = formatter.flush()
     assert line == "Server--xClient: Error: ValueError"
 
 
@@ -77,5 +81,6 @@ def test_formatter_escape() -> None:
     record = logging.LogRecord("name", logging.INFO, "path", 1, "msg", None, None)
     record.flow_event = event
 
-    line = formatter.format(record)
+    formatter.format(record)
+    line = formatter.flush()
     assert "Line1<br/>Line2" in line

@@ -1,0 +1,10 @@
+sequenceDiagram
+    title Log Flow
+    autonumber
+
+Unknown->>PaymentProcessor: Validate Card(<PaymentProcessor>, '1234-5678')
+PaymentProcessor-->>Unknown: Return: True
+Unknown->>ExternalAPI: HTTP GET('https://api.github.com', timeout=1)
+ExternalAPI-->>Unknown: Return: <Response [200]>
+Unknown->>PaymentProcessor: Charge(<PaymentProcessor>, 99.9)
+PaymentProcessor-->>Unknown: Return: 'Charged $99.9'

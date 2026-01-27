@@ -1,0 +1,6 @@
+sequenceDiagram
+    title Log Flow
+    autonumber
+
+User->>test_concurrency: Worker('Worker-0', 0.01) (x20)
+test_concurrency-->>User: Return: 'Worker-0 done' (x20)

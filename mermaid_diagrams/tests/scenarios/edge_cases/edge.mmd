@@ -1,0 +1,7 @@
+sequenceDiagram
+    title Log Flow
+    autonumber
+
+Outer->>Scope: Fail
+Scope--xOuter: Error: Fail
+note right of Outer: Traceback (most recent call last):<br/>  File "D:\TraeProjects\mermaid-trace\src\mermaid_trace\core\decorators.py", line 583, in wrapper<br/>    result = func(*args, **kwargs)<br/>  File "D:\TraeProjects\mermaid-trace\tests\scenarios\test_edge_cases.py", line 75, in fail<br/>    raise ValueError("Fail")<br/>ValueError:...

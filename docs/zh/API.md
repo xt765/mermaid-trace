@@ -4,6 +4,8 @@
 
 - [核心功能 (Core)](#核心功能-core)
   - [trace / trace_interaction](#trace--trace_interaction)
+  - [trace_class](#trace_class)
+  - [patch_object](#patch_object)
   - [configure_flow](#configure_flow)
   - [LogContext](#logcontext)
   - [Event（抽象基类）](#event抽象基类)
@@ -40,6 +42,40 @@ def login(username): ...
 - `max_arg_length` (int): 参数字符串表示的最大长度。默认为 50。
 - `max_arg_depth` (int): 参数嵌套结构表示的最大深度。默认为 1。
 
+### `trace_class`
+
+用于自动给类的方法批量应用 `@trace` 的类装饰器。
+
+```python
+from mermaid_trace import trace_class
+
+@trace_class
+class MyService:
+    def method_a(self) -> None:
+        ...
+```
+
+**参数：**
+- `include_private` (bool): 是否追踪以 `_` 开头的方法。默认为 False。
+- `exclude` (Optional[List[str]]): 需要跳过的函数/方法名列表。
+- `**trace_kwargs`: 透传给 `@trace` 的参数（例如 `capture_args=False`）。
+
+### `patch_object`
+
+对对象/类/模块的某个方法做 monkey patch 并加入追踪。
+
+```python
+import requests
+from mermaid_trace import patch_object
+
+patch_object(requests, "get", action="HTTP GET", target="requests")
+```
+
+**参数：**
+- `target` (Any): 拥有该属性的对象/类/模块。
+- `method_name` (str): 需要被包装的方法名。
+- `**trace_kwargs`: 透传给 `@trace` 的参数。
+
 ### `configure_flow`
 
 配置全局日志记录器以输出到 Mermaid 文件。应在应用程序启动时调用一次。
@@ -49,7 +85,10 @@ def configure_flow(
     output_file: str = "flow.mmd",
     handlers: Optional[List[logging.Handler]] = None,
     append: bool = False,
-    async_mode: bool = False
+    async_mode: bool = False,
+    level: int = logging.INFO,
+    config_overrides: Optional[Dict[str, Any]] = None,
+    queue_size: Optional[int] = None,
 ) -> logging.Logger
 ```
 
@@ -58,6 +97,9 @@ def configure_flow(
 - `handlers` (List[logging.Handler]): 可选的自定义日志处理器列表。如果提供，`output_file` 将被忽略，除非您手动包含了 `MermaidFileHandler`。
 - `append` (bool): 如果为 `True`，则添加新的处理器而不移除现有的。默认为 `False`。
 - `async_mode` (bool): 如果为 `True`，使用非阻塞后台线程进行日志记录 (QueueHandler)。推荐用于生产环境。默认为 `False`。
+- `level` (int): 日志等级。默认为 `logging.INFO`。
+- `config_overrides` (Optional[Dict[str, Any]]): 全局配置覆盖项（MermaidConfig 字段）。
+- `queue_size` (Optional[int]): 异步模式队列大小；优先于全局配置。
 
 ### `LogContext`
 
@@ -73,13 +115,13 @@ def configure_flow(
 
 所有事件类型的抽象基类，为不同类型的事件提供通用接口。
 
-**方法：**
-- `get_source() -> str`: 获取事件的来源。
-- `get_target() -> str`: 获取事件的目标。
-- `get_action() -> str`: 获取事件的动作名称。
-- `get_message() -> str`: 获取事件的消息文本。
-- `get_timestamp() -> float`: 获取事件的时间戳。
-- `get_trace_id() -> str`: 获取事件的追踪 ID。
+**属性：**
+- `source` (str): 事件的来源参与者名称。
+- `target` (str): 事件的目标参与者名称。
+- `action` (str): 动作名称。
+- `message` (str): 消息文本。
+- `timestamp` (float): 事件的时间戳（Unix 秒）。
+- `trace_id` (str): 事件的追踪 ID。
 
 ### `FlowEvent`
 
@@ -95,8 +137,10 @@ def configure_flow(
 - `is_return` (bool): 指示这是否为响应箭头的标志。
 - `is_error` (bool): 指示是否发生异常的标志。
 - `error_message` (Optional[str]): 如果 `is_error` 为 True，则包含详细的错误文本。
+- `stack_trace` (Optional[str]): 发生异常时的完整堆栈信息（如可用）。
 - `params` (Optional[str]): 函数参数的字符串表示。
 - `result` (Optional[str]): 返回值的字符串表示。
+- `collapsed` (bool): 指示该交互是否需要“折叠/采样”显示。
 
 ### `BaseFormatter`（抽象基类）
 
@@ -104,6 +148,7 @@ def configure_flow(
 
 **方法：**
 - `format_event(event: Event) -> str`: 将事件格式化为所需的输出字符串。
+- `get_header(title: str) -> str`: 获取图表格式的文件头。
 - `format(record: logging.LogRecord) -> str`: 格式化包含事件的日志记录。
 
 ### `MermaidFormatter`
@@ -112,6 +157,7 @@ def configure_flow(
 
 **方法：**
 - `format_event(event: Event) -> str`: 将事件转换为 Mermaid 语法字符串。
+- `get_header(title: str) -> str`: 返回 Mermaid 时序图的文件头。
 
 ### `MermaidFileHandler`
 

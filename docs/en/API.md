@@ -4,6 +4,8 @@
 
 - [Core](#core)
   - [trace / trace_interaction](#trace--trace_interaction)
+  - [trace_class](#trace_class)
+  - [patch_object](#patch_object)
   - [configure_flow](#configure_flow)
   - [LogContext](#logcontext)
   - [Event (Abstract Base Class)](#event-abstract-base-class)
@@ -40,6 +42,40 @@ def login(username): ...
 - `max_arg_length` (int): Maximum length of string representation for arguments. Defaults to 50.
 - `max_arg_depth` (int): Maximum depth for nested structures in argument representation. Defaults to 1.
 
+### `trace_class`
+
+Class decorator to automatically apply `@trace` to methods of a class.
+
+```python
+from mermaid_trace import trace_class
+
+@trace_class
+class MyService:
+    def method_a(self) -> None:
+        ...
+```
+
+**Arguments:**
+- `include_private` (bool): If True, traces methods starting with `_`. Defaults to False.
+- `exclude` (Optional[List[str]]): Method names to skip.
+- `**trace_kwargs`: Passed through to `@trace` (e.g., `capture_args=False`).
+
+### `patch_object`
+
+Monkey-patches a method on an object/class/module with tracing.
+
+```python
+import requests
+from mermaid_trace import patch_object
+
+patch_object(requests, "get", action="HTTP GET", target="requests")
+```
+
+**Arguments:**
+- `target` (Any): Object/class/module that owns the attribute.
+- `method_name` (str): Attribute name to wrap.
+- `**trace_kwargs`: Passed through to `@trace`.
+
 ### `configure_flow`
 
 Configures the global logger to output to a Mermaid file. This should be called once at application startup.
@@ -49,7 +85,10 @@ def configure_flow(
     output_file: str = "flow.mmd",
     handlers: Optional[List[logging.Handler]] = None,
     append: bool = False,
-    async_mode: bool = False
+    async_mode: bool = False,
+    level: int = logging.INFO,
+    config_overrides: Optional[Dict[str, Any]] = None,
+    queue_size: Optional[int] = None,
 ) -> logging.Logger
 ```
 
@@ -58,6 +97,9 @@ def configure_flow(
 - `handlers` (List[logging.Handler]): Optional list of custom logging handlers. If provided, `output_file` is ignored unless you include `MermaidFileHandler` manually.
 - `append` (bool): If `True`, adds new handlers without removing existing ones. Defaults to `False`.
 - `async_mode` (bool): If `True`, uses a non-blocking background thread for logging (QueueHandler). Recommended for production. Defaults to `False`.
+- `level` (int): Logger level. Defaults to `logging.INFO`.
+- `config_overrides` (Optional[Dict[str, Any]]): Overrides for global config keys (MermaidConfig fields).
+- `queue_size` (Optional[int]): Queue size for async mode; overrides config.
 
 ### `LogContext`
 
@@ -73,13 +115,13 @@ Manages execution context (like thread-local storage) to track caller/callee rel
 
 Abstract base class for all event types, providing a common interface for different types of events.
 
-**Methods:**
-- `get_source() -> str`: Get the source of the event.
-- `get_target() -> str`: Get the target of the event.
-- `get_action() -> str`: Get the action name of the event.
-- `get_message() -> str`: Get the message text of the event.
-- `get_timestamp() -> float`: Get the timestamp of the event.
-- `get_trace_id() -> str`: Get the trace ID of the event.
+**Attributes:**
+- `source` (str): Name of the participant that generated the event.
+- `target` (str): Name of the participant that received the event.
+- `action` (str): Short name describing the action performed.
+- `message` (str): Detailed message describing the event.
+- `timestamp` (float): Unix timestamp (seconds) when the event occurred.
+- `trace_id` (str): Unique identifier for the trace session.
 
 ### `FlowEvent`
 
@@ -95,8 +137,10 @@ Represents a single interaction or step in the execution flow, inheriting from `
 - `is_return` (bool): Flag indicating if this is a response arrow.
 - `is_error` (bool): Flag indicating if an exception occurred.
 - `error_message` (Optional[str]): Detailed error text if `is_error` is True.
+- `stack_trace` (Optional[str]): Full stack trace text if available.
 - `params` (Optional[str]): Stringified representation of function arguments.
 - `result` (Optional[str]): Stringified representation of the return value.
+- `collapsed` (bool): Flag indicating this interaction should be visually collapsed.
 
 ### `BaseFormatter` (Abstract Base Class)
 
@@ -104,6 +148,7 @@ Abstract base class for all event formatters, providing a common interface for d
 
 **Methods:**
 - `format_event(event: Event) -> str`: Format an Event into the desired output string.
+- `get_header(title: str) -> str`: Get the file header for the diagram format.
 - `format(record: logging.LogRecord) -> str`: Format a logging record containing an event.
 
 ### `MermaidFormatter`
@@ -112,6 +157,7 @@ Custom formatter to convert Events into Mermaid sequence diagram syntax, inherit
 
 **Methods:**
 - `format_event(event: Event) -> str`: Converts an Event into a Mermaid syntax string.
+- `get_header(title: str) -> str`: Returns the Mermaid sequence diagram header.
 
 ### `MermaidFileHandler`
 

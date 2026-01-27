@@ -6,8 +6,10 @@ from mermaid_trace.handlers.async_handler import AsyncMermaidHandler
 
 
 @pytest.mark.asyncio
-async def test_concurrency_consistency(tmp_path: Path) -> None:
-    log_file = tmp_path / "concurrency.mmd"
+async def test_concurrency_consistency(diagram_output_dir: Path) -> None:
+    log_file = diagram_output_dir / "concurrency.mmd"
+    if log_file.exists():
+        log_file.unlink()
 
     # Configure global logger for this test
     # We use a unique logger name or reset handlers to avoid interference
@@ -23,9 +25,11 @@ async def test_concurrency_consistency(tmp_path: Path) -> None:
 
     # Launch multiple concurrent tasks
     count = 20
-    tasks = [worker(f"Worker-{i}", 0.01) for i in range(count)]
+    from mermaid_trace.core.context import LogContext
 
-    results = await asyncio.gather(*tasks)
+    async with LogContext.ascope({"participant": "User"}):
+        tasks = [worker(f"Worker-{i}", 0.01) for i in range(count)]
+        results = await asyncio.gather(*tasks)
 
     assert len(results) == count
     assert results[0] == "Worker-0 done"
@@ -40,30 +44,21 @@ async def test_concurrency_consistency(tmp_path: Path) -> None:
     # Check file content
     content = log_file.read_text(encoding="utf-8")
 
-    # We expect 2 lines per worker (Call + Return)
-    # Total lines = header (2) + 2 * count
-    # But since it's async, the order might vary, but all lines must be there.
+    # With intelligent collapsing, multiple calls/returns are merged.
+    # We expect at least one call line and one return line.
+    # Each line should contain the (x20) indicator.
 
-    lines = content.strip().splitlines()
-    # Filter out header
-    data_lines = [line for line in lines if "Worker-" in line]
-
-    assert len(data_lines) == count * 2, (
-        f"Expected {count * 2} lines, got {len(data_lines)}"
-    )
-
-    for i in range(count):
-        assert f"Worker-{i}" in content
-        assert (
-            f"Return: 'Worker-{i} done'" in content
-            or f"Return: Worker-{i} done" in content
-        )
+    assert "User->>test_concurrency: Worker" in content
+    assert "test_concurrency-->>User: Return: 'Worker" in content
+    assert "(x20)" in content
 
 
 @pytest.mark.asyncio
-async def test_concurrency_trace_ids(tmp_path: Path) -> None:
+async def test_concurrency_trace_ids(diagram_output_dir: Path) -> None:
     # Test that trace IDs are unique per task context if not shared
-    log_file = tmp_path / "trace_ids.mmd"
+    log_file = diagram_output_dir / "trace_ids.mmd"
+    if log_file.exists():
+        log_file.unlink()
     logger = configure_flow(str(log_file), async_mode=True)
 
     # We need to capture the trace IDs used.

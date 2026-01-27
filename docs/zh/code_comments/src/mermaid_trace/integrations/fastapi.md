@@ -1,122 +1,133 @@
 # 文件: src/mermaid_trace/integrations/fastapi.py
 
 ## 概览
-本文件实现了 `MermaidTraceMiddleware`，这是一个用于 FastAPI/Starlette 应用的中间件。它能够自动拦截所有 HTTP 请求，将其转换为 Mermaid 时序图中的交互。
+`fastapi.py` 模块提供了将 MermaidTrace 集成到 FastAPI 应用中的中间件。它是 HTTP 请求与时序图生成逻辑之间的桥梁，负责自动捕获请求生命周期中的所有关键交互。
 
 ## 核心功能分析
 
-### 请求生命周期追踪
-中间件覆盖了完整的请求-响应周期：
-1.  **请求拦截**: 在处理任何业务逻辑之前，拦截 HTTP 请求。
-2.  **源识别**: 尝试从 HTTP Header (`X-Source`) 获取调用者名称，如果未提供则默认为 "Client"。
-3.  **Trace ID 管理**: 检查 `X-Trace-ID`，如果存在则沿用（分布式追踪），否则生成新的 ID。
-4.  **上下文初始化**: 使用 `LogContext.ascope` 初始化当前请求的上下文。这确保了该请求后续的所有代码（包括路由处理函数、依赖注入、其他中间件）都能共享同一个 `Trace ID` 和 `Participant` 信息。
-5.  **执行与计时**: 调用 `call_next(request)` 执行实际业务逻辑，并计算耗时。
-6.  **响应/错误记录**: 记录成功的响应（带状态码和耗时）或捕获异常并记录错误。
+### 1. 自动请求追踪
+`MermaidTraceMiddleware` 拦截每一个进入 FastAPI 的 HTTP 请求。
+- **请求捕获**: 记录 `Client -> API` 的调用，包含 HTTP 方法和路径。
+- **响应捕获**: 记录 `API -> Client` 的返回，包含状态码和处理耗时。
+- **异常捕获**: 如果请求处理过程中发生未捕获异常，中间件会记录一个错误事件（显示为带叉的虚线 `API --x Client`），并附带堆栈信息。
 
-### 异常处理注意事项
-FastAPI 有自己的异常处理机制（Exception Handlers）。如果应用中定义了全局异常处理器，异常可能在到达此中间件之前就被捕获并转换为普通的 JSON 响应（例如 500 Internal Server Error）。在这种情况下，MermaidTrace 会将其记录为正常的“返回”箭头（带 500 状态码），而不是“错误”箭头（`-x`）。只有未被捕获的异常才会触发错误日志。
+### 2. 追踪上下文管理
+中间件利用 `LogContext.ascope` 为每个请求初始化一个独立的异步上下文。
+- **Trace ID**: 自动生成或从 Header (`X-Trace-ID`) 中提取。该 ID 会贯穿该请求触发的所有内部函数调用。
+- **Participant**: 设置当前服务的参与者名称（默认为 "FastAPI"）。
+
+### 3. 分布式追踪支持
+支持跨服务的追踪传递：
+- **`X-Source`**: 允许调用方声明自己的身份。如果 A 服务调用 B 服务并带上 `X-Source: ServiceA`，B 服务的图表将显示 `ServiceA -> ServiceB` 而不是 `Client -> ServiceB`。
+- **`X-Trace-ID`**: 允许跨服务关联同一个追踪 ID。
+
+### 4. 条件依赖处理
+该模块使用了条件导入技巧，使得即使环境中没有安装 FastAPI，项目其他部分依然可以正常运行，只有在真正实例化中间件时才会抛出错误。
 
 ## 源代码与中文注释
 
 ```python
+"""
+MermaidTrace 的 FastAPI 集成模块。
+
+本模块提供必要的中间件，将 MermaidTrace 与 FastAPI 应用程序集成。
+"""
+
 from typing import Any, TYPE_CHECKING
 import time
 import uuid
+import traceback
 
 from ..core.events import FlowEvent
 from ..core.context import LogContext
 from ..core.decorators import get_flow_logger
 
+# ----------------------------------------------------------------------
+# 条件导入：支持可选的 FastAPI 依赖
+# ----------------------------------------------------------------------
 if TYPE_CHECKING:
+    # 仅用于静态类型检查
     from fastapi import Request, Response
     from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 else:
     try:
         from fastapi import Request, Response
-        from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+        from starlette.middleware.base import (
+            BaseHTTPMiddleware,
+            RequestResponseEndpoint,
+        )
     except ImportError:
-        # 处理 FastAPI/Starlette 未安装的情况。
-        # 我们定义虚拟类型以防止导入时的 NameError，
-        # 但实例化将在 __init__ 中显式失败。
-        BaseHTTPMiddleware = object  # type: ignore[misc,assignment]
-        Request = Any  # type: ignore[assignment]
-        Response = Any  # type: ignore[assignment]
-        RequestResponseEndpoint = Any  # type: ignore[assignment]
+        # 如果未安装 FastAPI/Starlette，则使用占位符，防止导入报错
+        BaseHTTPMiddleware = object  # type: ignore
+        Request = Any
+        Response = Any
+        RequestResponseEndpoint = Any
+
 
 class MermaidTraceMiddleware(BaseHTTPMiddleware):
     """
-    FastAPI 中间件，用于将 HTTP 请求作为时序图中的交互进行追踪。
-    
-    此中间件充当追踪 Web 请求的入口点。它：
-    1. 识别客户端（Source）。
-    2. 记录传入请求。
-    3. 为请求生命周期初始化 `LogContext`。
-    4. 记录响应或错误。
+    FastAPI 中间件：将 HTTP 请求追踪为时序图中的交互。
     """
+
     def __init__(self, app: Any, app_name: str = "FastAPI"):
         """
         初始化中间件。
         
         参数:
-            app: FastAPI 应用程序实例。
-            app_name: 图表中显示的服务名称（例如 "UserAPI"）。
+            app: FastAPI 应用实例。
+            app_name: 在图中显示的当前服务名称（如 "UserAPI"）。
         """
-        if BaseHTTPMiddleware is object: # type: ignore[comparison-overlap]
-             raise ImportError("FastAPI/Starlette is required to use MermaidTraceMiddleware")
+        if BaseHTTPMiddleware is object:
+            raise ImportError(
+                "使用 MermaidTraceMiddleware 需要安装 FastAPI/Starlette"
+            )
+
         super().__init__(app)
         self.app_name = app_name
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         """
-        拦截传入请求。
-        
-        参数:
-            request (Request): 传入的 HTTP 请求。
-            call_next (Callable): 调用下一个中间件或端点的函数。
-            
-        返回:
-            Response: HTTP 响应。
+        核心调度方法：拦截并追踪请求。
         """
-        # 1. 确定来源（客户端）
-        # 尝试从 Header 获取特定 ID（用于分布式追踪），
-        # 否则回退到 "Client"。
+        # 1. 提取元数据：支持分布式追踪 Header
+        # X-Source: 谁在调用我？（默认 "Client"）
         source = request.headers.get("X-Source", "Client")
         
-        # 确定 Trace ID
-        # 检查 X-Trace-ID Header 或生成新的 UUID
+        # X-Trace-ID: 关联现有追踪，或生成新 ID
         trace_id = request.headers.get("X-Trace-ID") or str(uuid.uuid4())
         
-        # 2. 确定动作
-        # 格式: "METHOD /path" (例如 "GET /users")
+        # 动作描述：例如 "GET /users"
         action = f"{request.method} {request.url.path}"
         
         logger = get_flow_logger()
-        
-        # 3. 记录请求 (Source -> App)
+
+        # 2. 记录请求进入事件 (Source -> App)
         req_event = FlowEvent(
             source=source,
             target=self.app_name,
             action=action,
             message=action,
+            # 将查询参数记录在备注中
             params=f"query={request.query_params}" if request.query_params else None,
-            trace_id=trace_id
+            trace_id=trace_id,
         )
-        logger.info(f"{source}->{self.app_name}: {action}", extra={"flow_event": req_event})
-        
-        # 4. 设置上下文并处理请求
-        # 我们将当前参与者设置为应用程序名称。
-        # `ascope` 确保此上下文适用于在 `call_next` 内运行的所有代码。
-        # 这包括路由处理程序、依赖项以及在此之后调用的其他中间件。
-        async with LogContext.ascope({"participant": self.app_name, "trace_id": trace_id}):
+        logger.info(
+            f"{source}->{self.app_name}: {action}", extra={"flow_event": req_event}
+        )
+
+        # 3. 设置异步上下文并处理请求
+        # 内部调用的 @trace 函数将自动继承此 trace_id 和 participant 身份
+        async with LogContext.ascope(
+            {"participant": self.app_name, "trace_id": trace_id}
+        ):
             start_time = time.time()
             try:
-                # 将控制权传递给应用程序
-                # 这执行实际的路由逻辑
+                # 执行后续中间件和路由处理器
                 response = await call_next(request)
-                
-                # 5. 记录响应 (App -> Source)
-                # 计算响应标签的执行持续时间
+
+                # 4. 记录成功返回事件 (App -> Source)
                 duration = (time.time() - start_time) * 1000
                 resp_event = FlowEvent(
                     source=self.app_name,
@@ -125,16 +136,19 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
                     message="Return",
                     is_return=True,
                     result=f"{response.status_code} ({duration:.1f}ms)",
-                    trace_id=trace_id
+                    trace_id=trace_id,
                 )
-                logger.info(f"{self.app_name}->{source}: Return", extra={"flow_event": resp_event})
+                logger.info(
+                    f"{self.app_name}->{source}: Return",
+                    extra={"flow_event": resp_event},
+                )
                 return response
-                
+
             except Exception as e:
-                # 6. 记录错误 (App --x Source)
-                # 这捕获了冒泡到中间件的未处理异常
-                # 注意: FastAPI 的 ExceptionHandlers 可能会在此之前捕获它。
-                # 如果是这样，你可能会看到一个带有 500 状态的成功返回。
+                # 5. 记录错误返回事件 (App --x Source)
+                stack_trace = "".join(
+                    traceback.format_exception(type(e), e, e.__traceback__)
+                )
                 err_event = FlowEvent(
                     source=self.app_name,
                     target=source,
@@ -143,8 +157,13 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
                     is_return=True,
                     is_error=True,
                     error_message=str(e),
-                    trace_id=trace_id
+                    stack_trace=stack_trace,
+                    trace_id=trace_id,
                 )
-                logger.error(f"{self.app_name}-x{source}: Error", extra={"flow_event": err_event})
+                logger.error(
+                    f"{self.app_name}-x{source}: Error", extra={"flow_event": err_event}
+                )
+
+                # 重新抛出异常，交给 FastAPI 标准错误处理
                 raise
 ```

@@ -1,0 +1,10 @@
+sequenceDiagram
+    title Log Flow
+    autonumber
+
+User->>WebApp: Click Login
+WebApp->>AuthService: Login(<AuthService>, 123)
+AuthService->>DB: Query(<Database>, 123)
+DB-->>AuthService: Return: {'id': 123, 'name': 'Alice'}
+AuthService-->>WebApp: Return: 'Welcome Alice'
+WebApp-->>User: Return: None

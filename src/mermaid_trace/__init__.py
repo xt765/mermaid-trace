@@ -27,16 +27,35 @@ Usage Example:
 """
 
 from .core.decorators import trace_interaction, trace
+from .core.utils import trace_class, patch_object
 from .handlers.mermaid_handler import MermaidFileHandler
 from .handlers.async_handler import AsyncMermaidHandler
 from .core.events import Event, FlowEvent
 from .core.context import LogContext
 from .core.formatter import BaseFormatter, MermaidFormatter
+from .core.config import config, MermaidConfig
+
+__all__ = [
+    "trace_interaction",
+    "trace",
+    "trace_class",
+    "patch_object",
+    "MermaidFileHandler",
+    "AsyncMermaidHandler",
+    "Event",
+    "FlowEvent",
+    "LogContext",
+    "BaseFormatter",
+    "MermaidFormatter",
+    "config",
+    "MermaidConfig",
+    "configure_flow",
+]
 # We don't import integrations by default to avoid hard dependencies
 # Integrations (like FastAPI) must be imported explicitly by the user if needed.
 
 from importlib.metadata import PackageNotFoundError, version
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 import logging
 
@@ -46,6 +65,9 @@ def configure_flow(
     handlers: Optional[List[logging.Handler]] = None,
     append: bool = False,
     async_mode: bool = False,
+    level: int = logging.INFO,
+    config_overrides: Optional[Dict[str, Any]] = None,
+    queue_size: Optional[int] = None,
 ) -> logging.Logger:
     """
     Configures the flow logger to output to a Mermaid file.
@@ -68,14 +90,24 @@ def configure_flow(
                            Recommended for high-performance production environments to avoid
                            blocking the main execution thread during file I/O.
                            Defaults to False.
+        level (int): Logging level. Defaults to logging.INFO.
+        config_overrides (Dict[str, Any], optional): Dictionary to override default configuration settings.
+                                                     Keys should match MermaidConfig attributes.
+        queue_size (int, optional): Size of the async queue. If provided, overrides config.queue_size.
 
     Returns:
         logging.Logger: The configured logger instance used for flow tracing.
     """
+    # Apply configuration overrides
+    if config_overrides:
+        for k, v in config_overrides.items():
+            if hasattr(config, k):
+                setattr(config, k, v)
+
     # Get the specific logger used by the tracing decorators
     # This logger is isolated from the root logger to prevent pollution
     logger = logging.getLogger("mermaid_trace.flow")
-    logger.setLevel(logging.INFO)
+    logger.setLevel(level)
 
     # Remove existing handlers to avoid duplicate logs if configured multiple times
     # unless 'append' is requested. This ensures idempotency when calling configure_flow multiple times.
@@ -96,10 +128,15 @@ def configure_flow(
         target_handlers = [handler]
 
     if async_mode:
+        # Determine queue size
+        final_queue_size = queue_size if queue_size is not None else config.queue_size
+
         # Wrap the target handlers in an AsyncMermaidHandler (QueueHandler)
         # The QueueListener will pick up logs from the queue and dispatch to target_handlers
         # This decouples the application execution from the logging I/O
-        async_handler = AsyncMermaidHandler(target_handlers)
+        async_handler = AsyncMermaidHandler(
+            target_handlers, queue_size=final_queue_size
+        )
         logger.addHandler(async_handler)
     else:
         # Attach handlers directly to the logger for synchronous logging
@@ -116,18 +153,3 @@ try:
 except PackageNotFoundError:
     # Fallback version if the package is not installed (e.g., local development)
     __version__ = "0.0.0"
-
-
-# Export public API for easy access
-__all__ = [
-    "trace_interaction",
-    "trace",
-    "configure_flow",
-    "MermaidFileHandler",
-    "AsyncMermaidHandler",
-    "LogContext",
-    "Event",
-    "FlowEvent",
-    "BaseFormatter",
-    "MermaidFormatter",
-]

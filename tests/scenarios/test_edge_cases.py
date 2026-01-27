@@ -5,8 +5,10 @@ import logging
 
 
 @pytest.fixture
-def clean_logger(tmp_path: Any) -> Generator[logging.Logger, None, None]:
-    f = tmp_path / "edge.mmd"
+def clean_logger(diagram_output_dir: Any) -> Generator[logging.Logger, None, None]:
+    f = diagram_output_dir / "edge.mmd"
+    if f.exists():
+        f.unlink()
     logger = configure_flow(str(f))
     yield logger
     for h in logger.handlers:

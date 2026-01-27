@@ -1,0 +1,6 @@
+sequenceDiagram
+    title Log Flow
+    autonumber
+
+ServiceA->>test_concurrency: Get Trace Id (x5)
+test_concurrency-->>ServiceA: Return: 'trace-0' (x5)

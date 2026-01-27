@@ -5,22 +5,30 @@ import logging
 
 
 @pytest.fixture
-def flow_logger(tmp_path: Any) -> Generator[logging.Logger, None, None]:
-    f = tmp_path / "basic_flow.mmd"
+def flow_logger(diagram_output_dir: Any) -> Generator[logging.Logger, None, None]:
+    f = diagram_output_dir / "basic_flow.mmd"
+    if f.exists():
+        f.unlink()
     logger = configure_flow(str(f))
     yield logger
     for h in logger.handlers:
+        h.flush()
         h.close()
 
 
-def test_trace_interaction(flow_logger: logging.Logger, tmp_path: Any) -> None:
-    output_file = tmp_path / "basic_flow.mmd"
+def test_trace_interaction(
+    flow_logger: logging.Logger, diagram_output_dir: Any
+) -> None:
+    output_file = diagram_output_dir / "basic_flow.mmd"
 
     @trace(source="A", target="B", action="Action")
     def func() -> str:
         return "ok"
 
     func()
+
+    for h in flow_logger.handlers:
+        h.flush()
 
     content = output_file.read_text(encoding="utf-8")
 
@@ -29,8 +37,10 @@ def test_trace_interaction(flow_logger: logging.Logger, tmp_path: Any) -> None:
     assert "B-->>A: Return" in content
 
 
-def test_error_interaction(flow_logger: logging.Logger, tmp_path: Any) -> None:
-    output_file = tmp_path / "basic_flow.mmd"
+def test_error_interaction(
+    flow_logger: logging.Logger, diagram_output_dir: Any
+) -> None:
+    output_file = diagram_output_dir / "basic_flow.mmd"
 
     @trace(source="A", target="B", action="Fail")
     def fail() -> None:
@@ -38,6 +48,9 @@ def test_error_interaction(flow_logger: logging.Logger, tmp_path: Any) -> None:
 
     with pytest.raises(ValueError):
         fail()
+
+    for h in flow_logger.handlers:
+        h.flush()
 
     content = output_file.read_text(encoding="utf-8")
 

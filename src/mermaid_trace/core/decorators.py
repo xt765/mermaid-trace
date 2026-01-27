@@ -1,102 +1,256 @@
 """
 Function Tracing Decorator Module
+=================================
 
-This module provides the core tracing functionality for MermaidTrace. It includes:
-- A decorator (`trace`/`trace_interaction`) to instrument functions for tracing
-- Helper functions for formatting and logging trace events
-- Context management for tracking call chains
+This module provides the core tracing functionality for MermaidTrace. It implements the decorators
+responsible for intercepting function calls, capturing execution details, and logging them as
+structured events that can be visualized as Mermaid Sequence Diagrams.
 
-The decorator can be applied to both synchronous and asynchronous functions,
-and automatically handles context propagation for nested calls.
+Key Components:
+---------------
+1.  **`@trace` Decorator**: The primary interface for users. It can be used as a simple decorator
+    `@trace` or with arguments `@trace(action="Login")`.
+2.  **Context Management**: Handles the propagation of "who called whom". It uses `LogContext`
+    to track the current "participant" (caller) so that nested function calls correctly
+    link to their parent caller.
+3.  **Event Logging**: Generates `FlowEvent` objects containing source, target, action, and
+    parameters, which are then passed to the specialized logging handler.
+4.  **Automatic Target Resolution**: Heuristics to intelligently guess the participant name
+    from the class instance (`self`) or class (`cls`), falling back to the module name.
+
+Usage:
+------
+    from mermaid_trace.core.decorators import trace
+
+    @trace
+    def my_function(x):
+        return x + 1
+
+    @trace(target="Database", action="Query Users")
+    async def get_users():
+        ...
 """
 
 import functools
 import logging
 import inspect
+import re
 import reprlib
-from typing import Optional, Any, Callable, Tuple, Dict, Union, TypeVar, cast, overload
+import traceback
+from typing import (
+    Optional,
+    Any,
+    Callable,
+    Tuple,
+    Dict,
+    Union,
+    TypeVar,
+    cast,
+    overload,
+    List,
+)
 
 from .events import FlowEvent
 from .context import LogContext
+from .config import config
 
-# Logger name for flow events - used to isolate tracing logs from other application logs
+# Logger name for flow events - used to isolate tracing logs from other application logs.
+# This specific name is often used to configure a separate file handler in logging configs.
 FLOW_LOGGER_NAME = "mermaid_trace.flow"
 
-# Define generic type variable for the decorated function
+# Define generic type variable for the decorated function to preserve type hints
 F = TypeVar("F", bound=Callable[..., Any])
 
 
 def get_flow_logger() -> logging.Logger:
-    """Returns the dedicated logger for flow events.
+    """
+    Returns the dedicated logger for flow events.
+
+    This logger is intended to be used only for emitting `FlowEvent` objects.
+    It separates tracing noise from standard application logging.
 
     Returns:
-        logging.Logger: Logger instance configured for tracing events
+        logging.Logger: Logger instance configured for tracing events.
     """
     return logging.getLogger(FLOW_LOGGER_NAME)
 
 
-def _safe_repr(obj: Any, max_len: int = 50, max_depth: int = 1) -> str:
+class FlowRepr(reprlib.Repr):
     """
-    Safely creates a string representation of an object.
+    Custom Repr class that simplifies default Python object representations
+    (those containing memory addresses) into a cleaner <ClassName> format.
+    Also groups consecutive identical items in lists to keep diagrams concise.
+    """
 
-    Prevents massive log files by truncating long strings/objects
-    and handling exceptions during __repr__ calls (e.g. strict objects).
+    def _group_items(self, items_str: List[str]) -> List[str]:
+        """Groups consecutive identical strings in a list."""
+        if not items_str:
+            return []
+        res = []
+        current_item = items_str[0]
+        current_count = 1
+        for i in range(1, len(items_str)):
+            if items_str[i] == current_item:
+                current_count += 1
+            else:
+                if current_count > 1:
+                    res.append(f"{current_item} x {current_count}")
+                else:
+                    res.append(current_item)
+                current_item = items_str[i]
+                current_count = 1
+        # Handle the last group
+        if current_count > 1:
+            res.append(f"{current_item} x {current_count}")
+        else:
+            res.append(current_item)
+        return res
+
+    def repr_list(self, obj: List[Any], level: int) -> str:
+        """Custom list representation with item grouping."""
+        n = len(obj)
+        if n == 0:
+            return "[]"
+        items_str = []
+        for i in range(min(n, self.maxlist)):
+            items_str.append(self.repr1(obj[i], level - 1))
+
+        grouped = self._group_items(items_str)
+        if n > self.maxlist:
+            grouped.append("...")
+        return "[" + ", ".join(grouped) + "]"
+
+    def repr_tuple(self, obj: Tuple[Any, ...], level: int) -> str:
+        """Custom tuple representation with item grouping."""
+        n = len(obj)
+        if n == 0:
+            return "()"
+        if n == 1:
+            return "(" + self.repr1(obj[0], level - 1) + ",)"
+        items_str = []
+        for i in range(min(n, self.maxtuple)):
+            items_str.append(self.repr1(obj[i], level - 1))
+
+        grouped = self._group_items(items_str)
+        if n > self.maxtuple:
+            grouped.append("...")
+        return "(" + ", ".join(grouped) + ")"
+
+    def repr1(self, x: Any, level: int) -> str:
+        # Check if the object uses the default object.__repr__
+        # Default repr looks like <module.Class object at 0x...>
+        raw = repr(x)
+        if " object at 0x" in raw and raw.startswith("<") and raw.endswith(">"):
+            # Simplify to just <ClassName>
+            return f"<{x.__class__.__name__}>"
+
+        # Also handle some common cases where address is present but it's not the default repr
+        if " at 0x" in raw and raw.startswith("<") and raw.endswith(">"):
+            # Try to extract the class name or just simplify it
+            return f"<{x.__class__.__name__}>"
+
+        return super().repr1(x, level)
+
+
+def _safe_repr(
+    obj: Any, max_len: Optional[int] = None, max_depth: Optional[int] = None
+) -> str:
+    """
+    Safely creates a string representation of an object for logging purposes.
+
+    This function is critical for preventing log bloat and runtime errors during tracing.
+    It handles:
+    1.  **Truncation**: Limits the length of strings to prevent huge log files.
+    2.  **Depth Control**: Limits recursion for nested structures like dicts/lists.
+    3.  **Error Handling**: Catches exceptions if an object's `__repr__` is buggy or strict.
+    4.  **Simplification**: Automatically simplifies default Python object representations
+        (containing memory addresses) into <ClassName>.
 
     Args:
-        obj: The object to represent as a string
-        max_len: Maximum length of the resulting string
-        max_depth: Maximum recursion depth for nested objects
+        obj: The object to represent as a string.
+        max_len: Maximum length of the resulting string before truncation.
+                 Defaults to config.max_string_length if None.
+        max_depth: Maximum recursion depth for nested objects.
+                   Defaults to config.max_arg_depth if None.
 
     Returns:
-        str: Safe, truncated representation of the object
+        str: Safe, truncated representation of the object.
     """
-    try:
-        # Create a custom repr object to control depth and length
-        a_repr = reprlib.Repr()
-        a_repr.maxstring = max_len
-        a_repr.maxother = max_len
-        a_repr.maxlevel = max_depth
+    # Use config defaults if not explicitly provided
+    final_max_len = max_len if max_len is not None else config.max_string_length
+    final_max_depth = max_depth if max_depth is not None else config.max_arg_depth
 
+    try:
+        # Use our custom FlowRepr to provide standard way to limit representation size
+        # and simplify default object reprs recursively.
+        a_repr = FlowRepr()
+        a_repr.maxstring = final_max_len
+        a_repr.maxother = final_max_len
+        a_repr.maxlevel = final_max_depth
+
+        # Generate the representation
         r = a_repr.repr(obj)
-        if len(r) > max_len:
-            return r[:max_len] + "..."
+
+        # Final pass: Catch any remaining memory addresses using regex
+        # (e.g., in types reprlib doesn't recurse into)
+        # 1. <__main__.Class object at 0x...> -> <Class>
+        r = re.sub(
+            r"<([a-zA-Z0-9_.]+\.)?([a-zA-Z0-9_]+) object at 0x[0-9a-fA-F]+>",
+            r"<\2>",
+            r,
+        )
+        # 2. <Class at 0x...> -> <Class>
+        r = re.sub(
+            r"<([a-zA-Z0-9_.]+\.)?([a-zA-Z0-9_]+) at 0x[0-9a-fA-F]+>",
+            r"<\2>",
+            r,
+        )
+
+        # Double-check length constraint as reprlib might sometimes exceed it slightly
+        if len(r) > final_max_len:
+            return r[:final_max_len] + "..."
         return r
     except Exception:
-        # Fallback if repr() fails for any reason
+        # Fallback if repr() fails (e.g., property access raising error in __repr__)
         return "<unrepresentable>"
 
 
 def _format_args(
     args: Tuple[Any, ...],
     kwargs: Dict[str, Any],
-    capture_args: bool = True,
-    max_arg_length: int = 50,
-    max_arg_depth: int = 1,
+    capture_args: Optional[bool] = None,
+    max_arg_length: Optional[int] = None,
+    max_arg_depth: Optional[int] = None,
 ) -> str:
     """
-    Formats function arguments into a single string "arg1, arg2, k=v".
-    Used for the arrow label in the diagram.
+    Formats function arguments into a single string for the diagram arrow label.
+
+    Example Output: "1, 'test', debug=True"
+
+    This string is what appears on the arrow in the Mermaid diagram (e.g., `User->System: login(args...)`).
 
     Args:
-        args: Positional arguments to format
-        kwargs: Keyword arguments to format
-        capture_args: Whether to capture and format arguments at all
-        max_arg_length: Maximum length of each argument representation
-        max_arg_depth: Maximum recursion depth for nested arguments
+        args: Positional arguments tuple.
+        kwargs: Keyword arguments dictionary.
+        capture_args: If False, returns empty string immediately (privacy/performance).
+                      Defaults to config.capture_args if None.
+        max_arg_length: Maximum length of each argument representation.
+        max_arg_depth: Maximum recursion depth for nested arguments.
 
     Returns:
-        str: Formatted string of arguments, or empty string if capture_args is False
+        str: Comma-separated string of formatted arguments.
     """
-    if not capture_args:
+    final_capture = capture_args if capture_args is not None else config.capture_args
+    if not final_capture:
         return ""
 
     parts: list[str] = []
 
-    # Format positional arguments
+    # Process positional arguments
     for arg in args:
         parts.append(_safe_repr(arg, max_len=max_arg_length, max_depth=max_arg_depth))
 
-    # Format keyword arguments
+    # Process keyword arguments
     for k, v in kwargs.items():
         val_str = _safe_repr(v, max_len=max_arg_length, max_depth=max_arg_depth)
         parts.append(f"{k}={val_str}")
@@ -108,43 +262,51 @@ def _resolve_target(
     func: Callable[..., Any], args: Tuple[Any, ...], target_override: Optional[str]
 ) -> str:
     """
-    Determines the name of the participant (Target) for the diagram.
+    Determines the name of the 'Target' participant (the callee) for the diagram.
 
-    Resolution Priority:
-    1. **Override**: If the user explicitly provided `target="Name"`, use it.
-    2. **Instance Method**: If the first arg looks like `self` (has __class__),
-       use the class name.
-    3. **Class Method**: If the first arg is a type (cls), use the class name.
-    4. **Module Function**: Fallback to the name of the module containing the function.
-    5. **Fallback**: "Unknown".
+    The 'Target' is the entity *receiving* the call. We try to infer a meaningful name
+    (like the class name) so the diagram shows "User -> AuthService" instead of "User -> login".
+
+    Resolution Logic:
+    1.  **Override**: Use explicit `target` from decorator if provided.
+    2.  **Instance Method**: If first arg looks like `self` (has `__class__`), use ClassName.
+    3.  **Class Method**: If first arg is a type (cls), use ClassName.
+    4.  **Module Function**: Use the module name (e.g., "utils" from "my.pkg.utils").
+    5.  **Fallback**: "Unknown".
 
     Args:
-        func: The function being called
-        args: Positional arguments passed to the function
-        target_override: Explicit target name provided by the user, if any
+        func: The function being called (for module inspection).
+        args: Positional arguments (to check for self/cls).
+        target_override: Explicit target name provided by user via decorator.
 
     Returns:
-        str: Resolved target name for the diagram
+        str: The resolved name for the target participant.
     """
     if target_override:
         return target_override
 
-    # Heuristic: If it's a method call, args[0] is usually 'self' or 'cls'
+    # Heuristic: Check if this is a method call where args[0] is 'self' or 'cls'
     if args:
         first_arg = args[0]
-        # Check if it looks like a class instance (not a primitive or container)
-        if hasattr(first_arg, "__class__") and not isinstance(
-            first_arg, (str, int, float, bool, list, dict, type)
-        ):
-            return str(first_arg.__class__.__name__)
-        # Check if it looks like a class (cls) - e.g. @classmethod
+
+        # Check for class method (cls) - where first arg is the type itself
         if isinstance(first_arg, type):
             return first_arg.__name__
 
-    # Fallback to module name for standalone functions
+        # Check for instance method (self)
+        # We filter out primitives because functions might take an int/str as first arg,
+        # which shouldn't be treated as 'self'.
+        if hasattr(first_arg, "__class__") and not isinstance(
+            first_arg, (str, int, float, bool, list, dict, set, tuple)
+        ):
+            return str(first_arg.__class__.__name__)
+
+    # Fallback: Use module name for standalone functions
     module = inspect.getmodule(func)
     if module:
+        # Extract just the last part of the module path (e.g. 'auth' from 'app.core.auth')
         return module.__name__.split(".")[-1]
+
     return "Unknown"
 
 
@@ -157,16 +319,17 @@ def _log_interaction(
     trace_id: str,
 ) -> None:
     """
-    Logs the 'Call' event (Start of function).
-    Generates a FlowEvent and logs it with the appropriate context.
+    Logs the 'Call' event (Start of function execution).
+
+    This corresponds to the solid arrow in Mermaid: `Source -> Target: Action(params)`
 
     Args:
-        logger: Logger instance to use for logging
-        source: Name of the source participant (caller)
-        target: Name of the target participant (callee)
-        action: Name of the action being performed
-        params: Formatted string of function arguments
-        trace_id: Unique trace identifier for correlation
+        logger: Logger instance.
+        source: The caller participant name.
+        target: The callee participant name.
+        action: The operation name (function name or label).
+        params: Stringified arguments.
+        trace_id: Unique ID for the entire trace/request.
     """
     req_event = FlowEvent(
         source=source,
@@ -176,7 +339,8 @@ def _log_interaction(
         params=params,
         trace_id=trace_id,
     )
-    # The 'extra' dict is critical: the Handler will pick this up to format the Mermaid line
+    # The 'extra' dict is crucial. The custom LogHandler extracts 'flow_event'
+    # from here to format the actual Mermaid syntax line.
     logger.info(f"{source}->{target}: {action}", extra={"flow_event": req_event})
 
 
@@ -187,35 +351,39 @@ def _log_return(
     action: str,
     result: Any,
     trace_id: str,
-    capture_args: bool = True,
-    max_arg_length: int = 50,
-    max_arg_depth: int = 1,
+    capture_args: Optional[bool] = None,
+    max_arg_length: Optional[int] = None,
+    max_arg_depth: Optional[int] = None,
 ) -> None:
     """
-    Logs the 'Return' event (End of function).
-    Arrow: target --> source (Dotted line return)
+    Logs the 'Return' event (End of function execution).
 
-    Note: 'source' here is the original caller, 'target' is the callee.
-    So the return arrow goes from target back to source.
+    This corresponds to the dotted return arrow in Mermaid: `Target --> Source: Return value`
+
+    Note on Direction:
+    - In the diagram, the return goes from `target` (callee) back to `source` (caller).
+    - The code logs it as `Target->Source` to reflect this flow.
 
     Args:
-        logger: Logger instance to use for logging
-        source: Name of the original caller
-        target: Name of the callee that's returning
-        action: Name of the action being returned from
-        result: Return value of the function
-        trace_id: Unique trace identifier for correlation
-        capture_args: Whether to include the return value in the log
-        max_arg_length: Maximum length of the return value representation
-        max_arg_depth: Maximum recursion depth for nested return values
+        logger: Logger instance.
+        source: The original caller (who will receive the return).
+        target: The callee (who is returning).
+        action: The action that is completing.
+        result: The return value of the function.
+        trace_id: Trace correlation ID.
+        capture_args: Whether to log the return value content.
+        max_arg_length: Max string length for return value.
+        max_arg_depth: Max recursion depth for return value.
     """
     result_str = ""
-    if capture_args:
+    final_capture = capture_args if capture_args is not None else config.capture_args
+
+    if final_capture:
         result_str = _safe_repr(result, max_len=max_arg_length, max_depth=max_arg_depth)
 
     resp_event = FlowEvent(
-        source=target,
-        target=source,
+        source=target,  # Return flows FROM target
+        target=source,  # Return flows TO source
         action=action,
         message="Return",
         is_return=True,
@@ -235,33 +403,42 @@ def _log_error(
 ) -> None:
     """
     Logs an 'Error' event if the function raises an exception.
-    Arrow: target -x source (Error return)
+
+    This corresponds to the 'X' arrow in Mermaid: `Target -x Source: Error Message`
 
     Args:
-        logger: Logger instance to use for logging
-        source: Name of the original caller
-        target: Name of the callee that encountered an error
-        action: Name of the action that failed
-        error: Exception that was raised
-        trace_id: Unique trace identifier for correlation
+        logger: Logger instance.
+        source: The original caller.
+        target: The callee where error occurred.
+        action: The action that failed.
+        error: The exception object.
+        trace_id: Trace correlation ID.
     """
+    # Capture full stack trace
+    stack_trace = "".join(
+        traceback.format_exception(type(error), error, error.__traceback__)
+    )
+
     err_event = FlowEvent(
         source=target,
         target=source,
         action=action,
         message=str(error),
         is_return=True,
-        is_error=True,
+        is_error=True,  # Flags this as an error event
         error_message=str(error),
+        stack_trace=stack_trace,
         trace_id=trace_id,
     )
     logger.error(f"{target}-x{source}: Error", extra={"flow_event": err_event})
 
 
+# Overload 1: Simple usage -> @trace
 @overload
 def trace_interaction(func: F) -> F: ...
 
 
+# Overload 2: Configured usage -> @trace(action="Login")
 @overload
 def trace_interaction(
     *,
@@ -269,9 +446,9 @@ def trace_interaction(
     target: Optional[str] = None,
     name: Optional[str] = None,
     action: Optional[str] = None,
-    capture_args: bool = True,
-    max_arg_length: int = 50,
-    max_arg_depth: int = 1,
+    capture_args: Optional[bool] = None,
+    max_arg_length: Optional[int] = None,
+    max_arg_depth: Optional[int] = None,
 ) -> Callable[[F], F]: ...
 
 
@@ -282,9 +459,9 @@ def trace_interaction(
     target: Optional[str] = None,
     name: Optional[str] = None,
     action: Optional[str] = None,
-    capture_args: bool = True,
-    max_arg_length: int = 50,
-    max_arg_depth: int = 1,
+    capture_args: Optional[bool] = None,
+    max_arg_length: Optional[int] = None,
+    max_arg_depth: Optional[int] = None,
 ) -> Union[F, Callable[[F], F]]:
     """
     Main Decorator for tracing function execution in Mermaid diagrams.
@@ -294,27 +471,28 @@ def trace_interaction(
     and automatically handles context propagation for nested calls.
 
     It supports two modes of operation:
-    1. **Simple**: `@trace` (No arguments) - uses default settings
-    2. **Configured**: `@trace(action="Login", target="AuthService")` - customizes behavior
+    1.  **Simple Mode**: `@trace` (No arguments). Uses default naming (Class/Module name) and behavior.
+    2.  **Configured Mode**: `@trace(action="Login", target="AuthService")`. Customizes the diagram labels.
 
     Args:
-        func: The function being decorated (automatically passed in simple mode).
-        source: Explicit name of the caller participant (rarely used, usually inferred from Context).
-        target: Explicit name of the callee participant (overrides automatic resolution).
-        name: Alias for 'target' (for clearer API usage).
-        action: Label for the arrow (defaults to function name in Title Case).
-        capture_args: Whether to include arguments and return values in the log. Default True.
-        max_arg_length: Maximum string length for argument/result representation. Default 50.
-        max_arg_depth: Maximum recursion depth for argument/result representation. Default 1.
+        func: The function being decorated (passed automatically in Simple Mode).
+        source: Explicit name of the caller participant. Rarely used, as it's usually inferred from Context.
+        target: Explicit name of the callee participant. Overrides automatic `self`/`cls`/module resolution.
+        name: Alias for 'target' (syntactic sugar).
+        action: Label for the arrow. Defaults to the function name (Title Cased).
+        capture_args: If True, logs arguments and return values. Set False for sensitive data.
+        max_arg_length: Truncation limit for logging arguments/results.
+        max_arg_depth: Recursion limit for logging arguments/results.
 
     Returns:
-        Callable: Either the decorated function (simple mode) or a decorator factory (configured mode)
+        Callable: The decorated function (in Simple Mode) or a decorator factory (in Configured Mode).
     """
 
-    # Handle alias - 'name' is an alternative name for 'target'
+    # Handle alias - 'name' is an alternative convenience name for 'target'
     final_target = target or name
 
-    # Mode 1: @trace used without parentheses - directly decorate the function
+    # Mode 1: @trace used without parentheses
+    # func is passed directly. We create the wrapper immediately.
     if func is not None and callable(func):
         return _create_decorator(
             func,
@@ -326,7 +504,8 @@ def trace_interaction(
             max_arg_depth,
         )
 
-    # Mode 2: @trace(...) used with arguments -> returns a factory that will decorate the function
+    # Mode 2: @trace(...) used with arguments
+    # func is None. We return a "factory" function that Python will call with the function later.
     def factory(f: F) -> F:
         return _create_decorator(
             f, source, final_target, action, capture_args, max_arg_length, max_arg_depth
@@ -340,42 +519,47 @@ def _create_decorator(
     source: Optional[str],
     target: Optional[str],
     action: Optional[str],
-    capture_args: bool,
-    max_arg_length: int,
-    max_arg_depth: int,
+    capture_args: Optional[bool],
+    max_arg_length: Optional[int],
+    max_arg_depth: Optional[int],
 ) -> F:
     """
-    Constructs the actual wrapper function for the decorated function.
-    Handles both synchronous and asynchronous functions by creating the appropriate wrapper.
+    Internal factory that constructs the actual wrapper function.
 
-    This function separates the wrapper creation logic from the argument parsing logic
-    in `trace_interaction`, making the code cleaner and easier to test.
+    This separates the wrapper creation logic from the argument parsing logic in `trace_interaction`.
+    It handles the distinction between synchronous and asynchronous functions, returning
+    the appropriate wrapper type.
 
     Args:
-        func: The function to decorate
-        source: Explicit source name, if any
-        target: Explicit target name, if any
-        action: Explicit action name, if any
-        capture_args: Whether to capture arguments and return values
-        max_arg_length: Maximum length for argument/return value representations
-        max_arg_depth: Maximum recursion depth for nested objects
+        func: The function to decorate.
+        source: Configured source name.
+        target: Configured target name.
+        action: Configured action name.
+        capture_args: Configured argument capture setting.
+        max_arg_length: Configured max argument length.
+        max_arg_depth: Configured max argument depth.
 
     Returns:
-        Callable: Decorated function with tracing logic
+        Callable: The wrapped function containing tracing logic.
     """
 
-    # Pre-calculate static metadata to save time at runtime
+    # Pre-calculate static metadata to save time at runtime.
+    # If no action name provided, generate one from the function name (e.g., "get_user" -> "Get User")
     if action is None:
-        # Default action name is the function name, converted to Title Case
         action = func.__name__.replace("_", " ").title()
 
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        """Synchronous function wrapper that adds tracing logic."""
+        """
+        Synchronous function wrapper.
+        Executes tracing logic around a standard blocking function call.
+        """
         # 1. Resolve Context
-        # 'source' is who called us (from Context). 'target' is who we are (resolved from self/cls).
+        # 'current_source' is who called us. If not explicit, we get it from thread-local storage.
         current_source = source or LogContext.current_participant()
         trace_id = LogContext.current_trace_id()
+
+        # 'current_target' is who we are. We figure this out from 'self', 'cls', or module name.
         current_target = _resolve_target(func, args, target)
 
         logger = get_flow_logger()
@@ -385,19 +569,21 @@ def _create_decorator(
         )
 
         # 2. Log Request (Start of function)
-        # Logs the initial "Call" arrow (Source -> Target)
+        # Emits the "Call" arrow (Source -> Target)
         _log_interaction(
             logger, current_source, current_target, action, params_str, trace_id
         )
 
         # 3. Execute with New Context
-        # We push 'current_target' as the NEW 'participant' (source) for any internal calls.
-        # This builds the chain: A -> B, then inside B, B becomes the source for C (B -> C).
+        # We push 'current_target' as the NEW 'participant' (source) for any internal calls made by this function.
+        # This builds the chain: A calls B (A->B), then B calls C (B->C).
         with LogContext.scope({"participant": current_target, "trace_id": trace_id}):
             try:
+                # Execute the actual user function
                 result = func(*args, **kwargs)
+
                 # 4. Log Success Return
-                # Logs the "Return" arrow (Target --> Source)
+                # Emits the "Return" arrow (Target --> Source)
                 _log_return(
                     logger,
                     current_source,
@@ -412,13 +598,17 @@ def _create_decorator(
                 return result
             except Exception as e:
                 # 5. Log Error Return
-                # Logs the "Error" arrow (Target --x Source)
+                # Emits the "Error" arrow (Target -x Source)
                 _log_error(logger, current_source, current_target, action, e, trace_id)
+                # Re-raise the exception so program flow isn't altered
                 raise
 
     @functools.wraps(func)
     async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-        """Asynchronous function wrapper that adds tracing logic."""
+        """
+        Asynchronous function wrapper.
+        Executes tracing logic around an async/await coroutine.
+        """
         # 1. Resolve Context (Same as sync)
         current_source = source or LogContext.current_participant()
         trace_id = LogContext.current_trace_id()
@@ -435,13 +625,15 @@ def _create_decorator(
         )
 
         # 3. Execute with New Context using 'ascope'
-        # Use async context manager (ascope) to ensure context propagates correctly across awaits.
-        # This is critical for asyncio: context must be preserved even if the task yields control.
+        # Crucial difference for Async: We use `ascope` (async scope) which uses contextvars.
+        # This ensures the context is preserved across `await` points where the event loop might switch tasks.
         async with LogContext.ascope(
             {"participant": current_target, "trace_id": trace_id}
         ):
             try:
+                # Await the actual user coroutine
                 result = await func(*args, **kwargs)
+
                 # 4. Log Success Return
                 _log_return(
                     logger,
@@ -460,10 +652,10 @@ def _create_decorator(
                 _log_error(logger, current_source, current_target, action, e, trace_id)
                 raise
 
-    # Detect if the wrapped function is a coroutine to choose the right wrapper
+    # Detect if the wrapped function is a coroutine (async def)
     if inspect.iscoroutinefunction(func):
-        return cast(F, async_wrapper)  # Return async wrapper for coroutines
-    return cast(F, wrapper)  # Return sync wrapper for regular functions
+        return cast(F, async_wrapper)  # Use async wrapper for async functions
+    return cast(F, wrapper)  # Use sync wrapper for regular functions
 
 
 # Alias for easy import - 'trace' is the primary name users should use
