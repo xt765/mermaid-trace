@@ -62,6 +62,10 @@ mermaid-trace = "mermaid_trace.cli:main"
 [tool.hatch.version]
 source = "vcs"
 
+[tool.hatch.version.raw-options]
+local_scheme = "no-local-version"
+version_scheme = "post-release"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/mermaid_trace"]
 artifacts = ["*.typed", "*.mmd"]
