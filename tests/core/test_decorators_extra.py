@@ -1,4 +1,9 @@
-from mermaid_trace.core.decorators import _safe_repr, _format_args, _resolve_target
+from mermaid_trace.core.decorators import (
+    _safe_repr,
+    _format_args,
+    _resolve_target,
+    _TraceConfig,
+)
 
 
 def test_safe_repr_truncation():
@@ -28,8 +33,7 @@ def test_format_args_keyword():
     result = _format_args(
         args=(),
         kwargs={"key1": "value1", "key2": 123},
-        max_arg_length=50,
-        max_arg_depth=1,
+        config_obj=_TraceConfig(max_arg_length=50, max_arg_depth=1),
     )
     assert "key1='value1'" in result
     assert "key2=123" in result
@@ -40,8 +44,7 @@ def test_format_args_combined():
     result = _format_args(
         args=("pos1", 123),
         kwargs={"key1": "value1"},
-        max_arg_length=50,
-        max_arg_depth=1,
+        config_obj=_TraceConfig(max_arg_length=50, max_arg_depth=1),
     )
     assert "pos1" in result
     assert "123" in result

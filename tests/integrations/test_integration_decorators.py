@@ -1,6 +1,11 @@
 import pytest
 import asyncio
-from mermaid_trace.core.decorators import trace, _resolve_target, _format_args
+from mermaid_trace.core.decorators import (
+    trace,
+    _resolve_target,
+    _format_args,
+    _TraceConfig,
+)
 from unittest.mock import MagicMock, patch
 from typing import Any
 
@@ -93,7 +98,7 @@ def test_format_args_error_resilience() -> None:
     bad_obj = MagicMock()
     # Patch Repr.repr instead of reprlib.repr
     with patch("reprlib.Repr.repr", side_effect=Exception("Repr fail")):
-        res = _format_args((bad_obj,), {})
+        res = _format_args((bad_obj,), {}, _TraceConfig())
         assert "<unrepresentable>" in res
 
 

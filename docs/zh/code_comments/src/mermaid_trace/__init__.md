@@ -26,6 +26,7 @@
 
 该函数负责搭建整个日志基础设施：
 - **幂等性**: 除非设置 `append=True`，否则会清除旧的处理器，防止重复记录。
+- **覆盖模式**: 支持 `overwrite` 参数。如果为 `True`，每次启动时会以 `"w"` 模式打开文件，从而清空旧图表并从头开始记录。
 - **异步模式**: 支持 `async_mode`，使用 `AsyncMermaidHandler` 实现非阻塞日志记录，提高性能。
 - **配置覆盖**: 支持通过 `config_overrides` 参数在运行时修改全局配置。
 
@@ -36,11 +37,12 @@ def configure_flow(
     output_file: str = "flow.mmd",
     handlers: Optional[List[logging.Handler]] = None,
     append: bool = False,
+    overwrite: bool = True,
     async_mode: bool = False,
     level: int = logging.INFO,
     config_overrides: Optional[Dict[str, Any]] = None,
     queue_size: Optional[int] = None,
-) -> logging.Logger:
+) -> logging.Logger:  # noqa: PLR0913
     """
     配置流日志记录器。
     1. 应用配置覆盖。
@@ -67,8 +69,10 @@ def configure_flow(
     if handlers:
         target_handlers = handlers
     else:
+        # 确定文件打开模式：overwrite=True 则使用 "w"，否则使用 "a" (追加)
+        mode = "w" if overwrite else "a"
         # 创建默认的 Mermaid 文件处理器并设置格式化器
-        handler = MermaidFileHandler(output_file)
+        handler = MermaidFileHandler(output_file, mode=mode)
         handler.setFormatter(MermaidFormatter())
         target_handlers = [handler]
 

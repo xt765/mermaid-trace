@@ -37,6 +37,7 @@ import inspect
 import re
 import reprlib
 import traceback
+from dataclasses import dataclass
 from typing import (
     Optional,
     Any,
@@ -215,12 +216,19 @@ def _safe_repr(
         return "<unrepresentable>"
 
 
+@dataclass
+class _TraceConfig:
+    """Internal container for tracing configuration to avoid PLR0913."""
+
+    capture_args: Optional[bool] = None
+    max_arg_length: Optional[int] = None
+    max_arg_depth: Optional[int] = None
+
+
 def _format_args(
     args: Tuple[Any, ...],
     kwargs: Dict[str, Any],
-    capture_args: Optional[bool] = None,
-    max_arg_length: Optional[int] = None,
-    max_arg_depth: Optional[int] = None,
+    config_obj: _TraceConfig,
 ) -> str:
     """
     Formats function arguments into a single string for the diagram arrow label.
@@ -232,15 +240,16 @@ def _format_args(
     Args:
         args: Positional arguments tuple.
         kwargs: Keyword arguments dictionary.
-        capture_args: If False, returns empty string immediately (privacy/performance).
-                      Defaults to config.capture_args if None.
-        max_arg_length: Maximum length of each argument representation.
-        max_arg_depth: Maximum recursion depth for nested arguments.
+        config_obj: Trace configuration object.
 
     Returns:
         str: Comma-separated string of formatted arguments.
     """
-    final_capture = capture_args if capture_args is not None else config.capture_args
+    final_capture = (
+        config_obj.capture_args
+        if config_obj.capture_args is not None
+        else config.capture_args
+    )
     if not final_capture:
         return ""
 
@@ -248,11 +257,19 @@ def _format_args(
 
     # Process positional arguments
     for arg in args:
-        parts.append(_safe_repr(arg, max_len=max_arg_length, max_depth=max_arg_depth))
+        parts.append(
+            _safe_repr(
+                arg,
+                max_len=config_obj.max_arg_length,
+                max_depth=config_obj.max_arg_depth,
+            )
+        )
 
     # Process keyword arguments
     for k, v in kwargs.items():
-        val_str = _safe_repr(v, max_len=max_arg_length, max_depth=max_arg_depth)
+        val_str = _safe_repr(
+            v, max_len=config_obj.max_arg_length, max_depth=config_obj.max_arg_depth
+        )
         parts.append(f"{k}={val_str}")
 
     return ", ".join(parts)
@@ -310,13 +327,20 @@ def _resolve_target(
     return "Unknown"
 
 
+@dataclass
+class _TraceMetadata:
+    """Internal container for trace metadata to avoid PLR0913."""
+
+    source: str
+    target: str
+    action: str
+    trace_id: str
+
+
 def _log_interaction(
     logger: logging.Logger,
-    source: str,
-    target: str,
-    action: str,
+    meta: _TraceMetadata,
     params: str,
-    trace_id: str,
 ) -> None:
     """
     Logs the 'Call' event (Start of function execution).
@@ -325,23 +349,22 @@ def _log_interaction(
 
     Args:
         logger: Logger instance.
-        source: The caller participant name.
-        target: The callee participant name.
-        action: The operation name (function name or label).
+        meta: Trace metadata.
         params: Stringified arguments.
-        trace_id: Unique ID for the entire trace/request.
     """
     req_event = FlowEvent(
-        source=source,
-        target=target,
-        action=action,
-        message=action,
+        source=meta.source,
+        target=meta.target,
+        action=meta.action,
+        message=meta.action,
         params=params,
-        trace_id=trace_id,
+        trace_id=meta.trace_id,
     )
     # The 'extra' dict is crucial. The custom LogHandler extracts 'flow_event'
     # from here to format the actual Mermaid syntax line.
-    logger.info(f"{source}->{target}: {action}", extra={"flow_event": req_event})
+    logger.info(
+        f"{meta.source}->{meta.target}: {meta.action}", extra={"flow_event": req_event}
+    )
 
 
 def _log_return(
@@ -351,9 +374,7 @@ def _log_return(
     action: str,
     result: Any,
     trace_id: str,
-    capture_args: Optional[bool] = None,
-    max_arg_length: Optional[int] = None,
-    max_arg_depth: Optional[int] = None,
+    config_obj: _TraceConfig,
 ) -> None:
     """
     Logs the 'Return' event (End of function execution).
@@ -371,15 +392,21 @@ def _log_return(
         action: The action that is completing.
         result: The return value of the function.
         trace_id: Trace correlation ID.
-        capture_args: Whether to log the return value content.
-        max_arg_length: Max string length for return value.
-        max_arg_depth: Max recursion depth for return value.
+        config_obj: Trace configuration object.
     """
     result_str = ""
-    final_capture = capture_args if capture_args is not None else config.capture_args
+    final_capture = (
+        config_obj.capture_args
+        if config_obj.capture_args is not None
+        else config.capture_args
+    )
 
     if final_capture:
-        result_str = _safe_repr(result, max_len=max_arg_length, max_depth=max_arg_depth)
+        result_str = _safe_repr(
+            result,
+            max_len=config_obj.max_arg_length,
+            max_depth=config_obj.max_arg_depth,
+        )
 
     resp_event = FlowEvent(
         source=target,  # Return flows FROM target
@@ -395,11 +422,8 @@ def _log_return(
 
 def _log_error(
     logger: logging.Logger,
-    source: str,
-    target: str,
-    action: str,
+    meta: _TraceMetadata,
     error: Exception,
-    trace_id: str,
 ) -> None:
     """
     Logs an 'Error' event if the function raises an exception.
@@ -408,11 +432,8 @@ def _log_error(
 
     Args:
         logger: Logger instance.
-        source: The original caller.
-        target: The callee where error occurred.
-        action: The action that failed.
+        meta: Trace metadata.
         error: The exception object.
-        trace_id: Trace correlation ID.
     """
     # Capture full stack trace
     stack_trace = "".join(
@@ -420,17 +441,19 @@ def _log_error(
     )
 
     err_event = FlowEvent(
-        source=target,
-        target=source,
-        action=action,
+        source=meta.target,
+        target=meta.source,
+        action=meta.action,
         message=str(error),
         is_return=True,
         is_error=True,  # Flags this as an error event
         error_message=str(error),
         stack_trace=stack_trace,
-        trace_id=trace_id,
+        trace_id=meta.trace_id,
     )
-    logger.error(f"{target}-x{source}: Error", extra={"flow_event": err_event})
+    logger.error(
+        f"{meta.target}-x{meta.source}: Error", extra={"flow_event": err_event}
+    )
 
 
 # Overload 1: Simple usage -> @trace
@@ -462,7 +485,7 @@ def trace_interaction(
     capture_args: Optional[bool] = None,
     max_arg_length: Optional[int] = None,
     max_arg_depth: Optional[int] = None,
-) -> Union[F, Callable[[F], F]]:
+) -> Union[F, Callable[[F], F]]:  # noqa: PLR0913
     """
     Main Decorator for tracing function execution in Mermaid diagrams.
 
@@ -499,16 +522,18 @@ def trace_interaction(
             source,
             final_target,
             action,
-            capture_args,
-            max_arg_length,
-            max_arg_depth,
+            _TraceConfig(capture_args, max_arg_length, max_arg_depth),
         )
 
     # Mode 2: @trace(...) used with arguments
     # func is None. We return a "factory" function that Python will call with the function later.
     def factory(f: F) -> F:
         return _create_decorator(
-            f, source, final_target, action, capture_args, max_arg_length, max_arg_depth
+            f,
+            source,
+            final_target,
+            action,
+            _TraceConfig(capture_args, max_arg_length, max_arg_depth),
         )
 
     return factory
@@ -519,9 +544,7 @@ def _create_decorator(
     source: Optional[str],
     target: Optional[str],
     action: Optional[str],
-    capture_args: Optional[bool],
-    max_arg_length: Optional[int],
-    max_arg_depth: Optional[int],
+    config_obj: _TraceConfig,
 ) -> F:
     """
     Internal factory that constructs the actual wrapper function.
@@ -535,9 +558,7 @@ def _create_decorator(
         source: Configured source name.
         target: Configured target name.
         action: Configured action name.
-        capture_args: Configured argument capture setting.
-        max_arg_length: Configured max argument length.
-        max_arg_depth: Configured max argument depth.
+        config_obj: Trace configuration object.
 
     Returns:
         Callable: The wrapped function containing tracing logic.
@@ -562,17 +583,15 @@ def _create_decorator(
         # 'current_target' is who we are. We figure this out from 'self', 'cls', or module name.
         current_target = _resolve_target(func, args, target)
 
+        meta = _TraceMetadata(current_source, current_target, action, trace_id)
+
         logger = get_flow_logger()
         # Format arguments for the diagram arrow label
-        params_str = _format_args(
-            args, kwargs, capture_args, max_arg_length, max_arg_depth
-        )
+        params_str = _format_args(args, kwargs, config_obj)
 
         # 2. Log Request (Start of function)
         # Emits the "Call" arrow (Source -> Target)
-        _log_interaction(
-            logger, current_source, current_target, action, params_str, trace_id
-        )
+        _log_interaction(logger, meta, params_str)
 
         # 3. Execute with New Context
         # We push 'current_target' as the NEW 'participant' (source) for any internal calls made by this function.
@@ -591,15 +610,13 @@ def _create_decorator(
                     action,
                     result,
                     trace_id,
-                    capture_args,
-                    max_arg_length,
-                    max_arg_depth,
+                    config_obj,
                 )
                 return result
             except Exception as e:
                 # 5. Log Error Return
                 # Emits the "Error" arrow (Target -x Source)
-                _log_error(logger, current_source, current_target, action, e, trace_id)
+                _log_error(logger, meta, e)
                 # Re-raise the exception so program flow isn't altered
                 raise
 
@@ -614,15 +631,13 @@ def _create_decorator(
         trace_id = LogContext.current_trace_id()
         current_target = _resolve_target(func, args, target)
 
+        meta = _TraceMetadata(current_source, current_target, action, trace_id)
+
         logger = get_flow_logger()
-        params_str = _format_args(
-            args, kwargs, capture_args, max_arg_length, max_arg_depth
-        )
+        params_str = _format_args(args, kwargs, config_obj)
 
         # 2. Log Request
-        _log_interaction(
-            logger, current_source, current_target, action, params_str, trace_id
-        )
+        _log_interaction(logger, meta, params_str)
 
         # 3. Execute with New Context using 'ascope'
         # Crucial difference for Async: We use `ascope` (async scope) which uses contextvars.
@@ -642,14 +657,12 @@ def _create_decorator(
                     action,
                     result,
                     trace_id,
-                    capture_args,
-                    max_arg_length,
-                    max_arg_depth,
+                    config_obj,
                 )
                 return result
             except Exception as e:
                 # 5. Log Error Return
-                _log_error(logger, current_source, current_target, action, e, trace_id)
+                _log_error(logger, meta, e)
                 raise
 
     # Detect if the wrapped function is a coroutine (async def)

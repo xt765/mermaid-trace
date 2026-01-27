@@ -85,6 +85,7 @@ def configure_flow(
     output_file: str = "flow.mmd",
     handlers: Optional[List[logging.Handler]] = None,
     append: bool = False,
+    overwrite: bool = True,
     async_mode: bool = False,
     level: int = logging.INFO,
     config_overrides: Optional[Dict[str, Any]] = None,
@@ -96,6 +97,7 @@ def configure_flow(
 - `output_file` (str): `.mmd` 输出文件的路径。默认为 "flow.mmd"。
 - `handlers` (List[logging.Handler]): 可选的自定义日志处理器列表。如果提供，`output_file` 将被忽略，除非您手动包含了 `MermaidFileHandler`。
 - `append` (bool): 如果为 `True`，则添加新的处理器而不移除现有的。默认为 `False`。
+- `overwrite` (bool): 如果为 `True`（默认值），则在每次启动时覆盖输出文件。如果为 `False`，则追加到现有文件。
 - `async_mode` (bool): 如果为 `True`，使用非阻塞后台线程进行日志记录 (QueueHandler)。推荐用于生产环境。默认为 `False`。
 - `level` (int): 日志等级。默认为 `logging.INFO`。
 - `config_overrides` (Optional[Dict[str, Any]]): 全局配置覆盖项（MermaidConfig 字段）。

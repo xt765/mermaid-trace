@@ -20,18 +20,18 @@ MermaidTrace 是一个专业的日志工具，能从你的代码执行中自动�
 
 ## 📚 文档
 
-### 主要文档
+### 核心文档
 
 [用户指南](docs/zh/USER_GUIDE.md) · [API 参考](docs/zh/API.md) · [贡献指南](docs/zh/CONTRIBUTING.md) · [更新日志](docs/zh/CHANGELOG.md) · [许可证](docs/zh/LICENSE)
 
-### 代码注释文档
+### 代码注释文档 (中文)
 
-| 类别               | 链接                                                                                                                                                                                                                                                                             |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 类别 | 链接 |
+| :--- | :--- |
 | **核心模块** | [Context](docs/zh/code_comments/src/mermaid_trace/core/context.md) · [Decorators](docs/zh/code_comments/src/mermaid_trace/core/decorators.md) · [Events](docs/zh/code_comments/src/mermaid_trace/core/events.md) · [Formatter](docs/zh/code_comments/src/mermaid_trace/core/formatter.md) |
-| **处理器**   | [Async Handler](docs/zh/code_comments/src/mermaid_trace/handlers/async_handler.md) · [Mermaid Handler](docs/zh/code_comments/src/mermaid_trace/handlers/mermaid_handler.md)                                                                                                           |
-| **集成**     | [FastAPI](docs/zh/code_comments/src/mermaid_trace/integrations/fastapi.md)                                                                                                                                                                                                          |
-| **其他**     | [init](docs/zh/code_comments/src/mermaid_trace/__init__.md) · [CLI](docs/zh/code_comments/src/mermaid_trace/cli.md)                                                                                                                                                                   |
+| **处理器** | [Async Handler](docs/zh/code_comments/src/mermaid_trace/handlers/async_handler.md) · [Mermaid Handler](docs/zh/code_comments/src/mermaid_trace/handlers/mermaid_handler.md) |
+| **集成** | [FastAPI](docs/zh/code_comments/src/mermaid_trace/integrations/fastapi.md) |
+| **其他** | [init](docs/zh/code_comments/src/mermaid_trace/__init__.md) · [CLI](docs/zh/code_comments/src/mermaid_trace/cli.md) |
 
 ---
 
@@ -46,6 +46,7 @@ MermaidTrace 是一个专业的日志工具，能从你的代码执行中自动�
 - **智能折叠**：通过折叠重复的高频调用和识别循环模式（如循环调用），防止时序图过载。
 - **详细异常堆栈**：自动捕获完整的错误堆栈追踪，并在图表中通过 Note 显示。
 - **对象显示优化**：自动清理内存地址（例如 `<__main__.Obj at 0x...>` -> `<Obj>`），并**自动合并列表/元组中连续的相同项**（例如 `[<Obj> x 5]`），使图表更整洁。
+- **日志轮转**：支持 `RotatingMermaidFileHandler`，通过按大小或时间切割日志文件，轻松应对长运行系统的日志膨胀问题。
 - **FastAPI 集成**：内置中间件，实现零配置的 HTTP 请求追踪，支持通过 `X-Trace-ID` 和 `X-Source` 请求头进行分布式追踪。
 - **CLI 工具**：内置带热重载功能的查看器，可在浏览器中即时预览图表。
 
@@ -91,6 +92,7 @@ process_payment(100)
 ```python
 configure_flow(
     "flow.mmd", 
+    overwrite=True,    # 每次运行是否覆盖原文件（默认为 True）
     level=logging.DEBUG, 
     queue_size=5000,  # 增加队列缓冲区以应对高并发
     config_overrides={
@@ -155,6 +157,7 @@ mermaid-trace serve my_flow.mmd
 - **[智能折叠](examples/05_intelligent_collapsing.py)**：在循环中保持图表整洁。
 - **[FastAPI 集成](examples/06_fastapi_integration.py)**：Web 应用中间件集成。
 - **[全栈综合应用](examples/07_full_stack_app.py)**：结合 FastAPI、SQLAlchemy 和 Pydantic 的全链路追踪示例。
+- **[日志轮转](examples/08-log-rotation.py)**：演示如何使用日志轮转处理长运行进程。
 
 ---
 

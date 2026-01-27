@@ -20,7 +20,18 @@ MermaidTrace is a specialized logging tool that automatically generates [Mermaid
 
 ## 📚 Documentation
 
+### Core Documentation
+
 [User Guide](docs/en/USER_GUIDE.md) · [API Reference](docs/en/API.md) · [Contributing Guidelines](docs/en/CONTRIBUTING.md) · [Changelog](docs/en/CHANGELOG.md) · [License](docs/en/LICENSE)
+
+### Code Comment Documents (Chinese)
+
+| Category | Links |
+| :--- | :--- |
+| **Core Modules** | [Context](docs/zh/code_comments/src/mermaid_trace/core/context.md) · [Decorators](docs/zh/code_comments/src/mermaid_trace/core/decorators.md) · [Events](docs/zh/code_comments/src/mermaid_trace/core/events.md) · [Formatter](docs/zh/code_comments/src/mermaid_trace/core/formatter.md) |
+| **Handlers** | [Async Handler](docs/zh/code_comments/src/mermaid_trace/handlers/async_handler.md) · [Mermaid Handler](docs/zh/code_comments/src/mermaid_trace/handlers/mermaid_handler.md) |
+| **Integrations** | [FastAPI](docs/zh/code_comments/src/mermaid_trace/integrations/fastapi.md) |
+| **Others** | [init](docs/zh/code_comments/src/mermaid_trace/__init__.md) · [CLI](docs/zh/code_comments/src/mermaid_trace/cli.md) |
 
 ---
 
@@ -35,6 +46,7 @@ MermaidTrace is a specialized logging tool that automatically generates [Mermaid
 - **Intelligent Collapsing**: Prevents diagram explosion by collapsing repetitive high-frequency calls and identifying recurring patterns (e.g., loops).
 - **Detailed Exceptions**: Captures full stack traces for errors, displayed in interactive notes.
 - **Simplified Objects**: Automatically cleans up memory addresses (e.g., `<__main__.Obj at 0x...>` -> `<Obj>`) and **groups consecutive identical items** in lists/tuples (e.g., `[<Obj> x 5]`) for cleaner diagrams.
+- **Log Rotation**: Supports `RotatingMermaidFileHandler` for handling long-running systems by splitting logs based on size or time.
 - **FastAPI Integration**: Includes middleware for zero-config HTTP request tracing, supporting distributed tracing via `X-Trace-ID` and `X-Source` headers.
 - **CLI Tool**: Built-in viewer with live-reload to preview diagrams in your browser.
 
@@ -80,6 +92,7 @@ You can configure global settings via `configure_flow` or environment variables 
 ```python
 configure_flow(
     "flow.mmd", 
+    overwrite=True,    # Overwrite the file on each restart (default: True)
     level=logging.DEBUG, 
     queue_size=5000,  # Increase buffer for high-throughput
     config_overrides={
@@ -142,6 +155,7 @@ Check out the [examples/](examples/) directory for a complete set of demos cover
 - **[Intelligent Collapsing](examples/05_intelligent_collapsing.py)**: Keeping diagrams clean in loops.
 - **[FastAPI Integration](examples/06_fastapi_integration.py)**: Middleware for web apps.
 - **[Full Stack App](examples/07_full_stack_app.py)**: Comprehensive example with FastAPI, SQLAlchemy, and Pydantic.
+- **[Log Rotation](examples/08-log-rotation.py)**: Handling long-running processes with file rotation.
 
 ---
 

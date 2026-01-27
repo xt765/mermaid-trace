@@ -5,15 +5,5 @@ sequenceDiagram
 Client->>MyFastAPI: GET /compute/5
 MyFastAPI->>LogicLayer: Calculate Something(5)
 LogicLayer-->>MyFastAPI: Return: 500
-MyFastAPI-->>Client: Return: 200 (1.8ms)
-Client->>MyFastAPI: GET /compute/-1
-Client->>MyFastAPI: GET /compute/5
-MyFastAPI->>LogicLayer: Calculate Something(5)
-LogicLayer-->>MyFastAPI: Return: 500
-MyFastAPI-->>Client: Return: 200 (2.7ms)
-Client->>MyFastAPI: GET /compute/-1
-Client->>MyFastAPI: GET /compute/5
-MyFastAPI->>LogicLayer: Calculate Something(5)
-LogicLayer-->>MyFastAPI: Return: 500
-MyFastAPI-->>Client: Return: 200 (2.5ms)
+MyFastAPI-->>Client: Return: 200 (5.7ms)
 Client->>MyFastAPI: GET /compute/-1

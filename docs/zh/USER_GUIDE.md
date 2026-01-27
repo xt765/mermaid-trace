@@ -16,6 +16,10 @@
   - [数据捕获控制](#数据捕获控制)
   - [显式命名](#显式命名)
   - [灵活的 Handler 配置](#灵活的-handler-配置)
+- [生产环境最佳实践](#生产环境最佳实践)
+  - [处理长运行系统](#处理长运行系统)
+  - [请求级追踪 (推荐)](#请求级追踪-推荐)
+  - [采样追踪](#采样追踪)
 - [CLI 查看器](#cli-查看器)
 
 ## 简介
@@ -191,6 +195,87 @@ def login():
 ```python
 # 追加到现有的 Handler，而不是清除它们
 configure_flow("flow.mmd", append=True)
+
+# 每次启动时覆盖原文件（默认为 True）
+configure_flow("flow.mmd", overwrite=True)
+```
+
+## 生产环境最佳实践
+
+在生产环境中，系统往往会长期运行，这会导致生成的时序图文件变得极其巨大且难以渲染。以下是几种推荐的解决方案：
+
+### 处理长运行系统
+
+如果必须长期记录所有活动，建议使用 **日志轮转 (Log Rotation)**。MermaidTrace 提供了两个专用的 Handler 来支持文件自动切割：
+
+#### 1. 按大小轮转 (`RotatingMermaidFileHandler`)
+
+当文件达到指定大小时，自动备份旧文件并开始新文件。
+
+```python
+import logging
+from mermaid_trace import configure_flow
+from mermaid_trace.handlers.mermaid_handler import RotatingMermaidFileHandler
+from mermaid_trace.core.formatter import MermaidFormatter
+
+# 创建一个按大小轮转的 Handler
+# maxBytes=1MB, backupCount=5 (保留5个备份)
+handler = RotatingMermaidFileHandler(
+    "production_flow.mmd", 
+    maxBytes=1024*1024, 
+    backupCount=5
+)
+handler.setFormatter(MermaidFormatter())
+
+# 使用该 handler 配置流
+configure_flow(handlers=[handler], async_mode=True)
+```
+
+#### 2. 按时间轮转 (`TimedRotatingMermaidFileHandler`)
+
+每天（或每小时）生成一个新的日志文件。
+
+```python
+from mermaid_trace.handlers.mermaid_handler import TimedRotatingMermaidFileHandler
+
+# 每天午夜轮转一次
+handler = TimedRotatingMermaidFileHandler(
+    "daily_flow.mmd",
+    when="midnight",
+    interval=1,
+    backupCount=7
+)
+handler.setFormatter(MermaidFormatter())
+
+configure_flow(handlers=[handler], async_mode=True)
+```
+
+### 请求级追踪 (推荐)
+
+对于高流量 Web 服务，最优雅的方案不是记录所有内容，而是**按请求隔离**或**按需记录**。
+
+虽然 MermaidTrace 目前默认将所有内容写入单个文件，但你可以结合 Trace ID 和外部日志系统（如 ELK、Splunk）使用。
+更高级的做法是，仅在检测到错误或特定触发条件时才启用详细追踪。
+
+### 采样追踪
+
+为了避免性能开销和存储压力，可以在 Web 中间件层实现采样逻辑：
+
+```python
+# 伪代码示例
+import random
+
+@app.middleware("http")
+async def trace_sampling_middleware(request: Request, call_next):
+    # 仅追踪 1% 的请求
+    should_trace = random.random() < 0.01
+    
+    if should_trace:
+        # 启用追踪上下文...
+        pass
+    
+    response = await call_next(request)
+    return response
 ```
 
 ## CLI 查看器

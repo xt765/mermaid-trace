@@ -16,6 +16,10 @@
   - [Data Capture Control](#data-capture-control)
   - [Explicit Naming](#explicit-naming)
   - [Flexible Handler Configuration](#flexible-handler-configuration)
+- [Production Best Practices](#production-best-practices)
+  - [Handling Long-Running Systems](#handling-long-running-systems)
+  - [Request-Level Tracing (Recommended)](#request-level-tracing-recommended)
+  - [Sampling Tracing](#sampling-tracing)
 - [CLI Viewer](#cli-viewer)
 
 ## Introduction
@@ -181,11 +185,93 @@ def login():
 ```
 
 ### Flexible Handler Configuration
+
 You can add MermaidTrace to an existing logging setup or append multiple handlers.
 
 ```python
 # Append to existing handlers instead of clearing them
 configure_flow("flow.mmd", append=True)
+
+# Overwrite existing file on each start (default: True)
+configure_flow("flow.mmd", overwrite=True)
+```
+
+## Production Best Practices
+
+In production environments, systems often run for long periods, which can cause sequence diagram files to become extremely large and difficult to render. Here are several recommended solutions:
+
+### Handling Long-Running Systems
+
+If you must record all activities over a long period, it is recommended to use **Log Rotation**. MermaidTrace provides two specialized handlers to support automatic file splitting:
+
+#### 1. Rotation by Size (`RotatingMermaidFileHandler`)
+
+Automatically backs up the old file and starts a new one when the file reaches a specified size.
+
+```python
+import logging
+from mermaid_trace import configure_flow
+from mermaid_trace.handlers.mermaid_handler import RotatingMermaidFileHandler
+from mermaid_trace.core.formatter import MermaidFormatter
+
+# Create a handler that rotates by size
+# maxBytes=1MB, backupCount=5 (keep 5 backups)
+handler = RotatingMermaidFileHandler(
+    "production_flow.mmd", 
+    maxBytes=1024*1024, 
+    backupCount=5
+)
+handler.setFormatter(MermaidFormatter())
+
+# Configure flow with this handler
+configure_flow(handlers=[handler], async_mode=True)
+```
+
+#### 2. Rotation by Time (`TimedRotatingMermaidFileHandler`)
+
+Generates a new log file every day (or every hour).
+
+```python
+from mermaid_trace.handlers.mermaid_handler import TimedRotatingMermaidFileHandler
+
+# Rotate once every midnight
+handler = TimedRotatingMermaidFileHandler(
+    "daily_flow.mmd",
+    when="midnight",
+    interval=1,
+    backupCount=7
+)
+handler.setFormatter(MermaidFormatter())
+
+configure_flow(handlers=[handler], async_mode=True)
+```
+
+### Request-Level Tracing (Recommended)
+
+For high-traffic Web services, the most elegant solution is not to record everything, but to **isolate by request** or **record on demand**.
+
+Although MermaidTrace currently defaults to writing everything to a single file, you can use it in conjunction with Trace IDs and external logging systems (like ELK, Splunk).
+A more advanced approach is to enable detailed tracing only when an error is detected or specific trigger conditions are met.
+
+### Sampling Tracing
+
+To avoid performance overhead and storage pressure, you can implement sampling logic at the Web middleware layer:
+
+```python
+# Pseudo-code example
+import random
+
+@app.middleware("http")
+async def trace_sampling_middleware(request: Request, call_next):
+    # Trace only 1% of requests
+    should_trace = random.random() < 0.01
+    
+    if should_trace:
+        # Enable tracing context...
+        pass
+    
+    response = await call_next(request)
+    return response
 ```
 
 ## CLI Viewer

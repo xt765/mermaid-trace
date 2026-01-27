@@ -85,6 +85,7 @@ def configure_flow(
     output_file: str = "flow.mmd",
     handlers: Optional[List[logging.Handler]] = None,
     append: bool = False,
+    overwrite: bool = True,
     async_mode: bool = False,
     level: int = logging.INFO,
     config_overrides: Optional[Dict[str, Any]] = None,
@@ -96,6 +97,7 @@ def configure_flow(
 - `output_file` (str): Path to the `.mmd` output file. Defaults to "flow.mmd".
 - `handlers` (List[logging.Handler]): Optional list of custom logging handlers. If provided, `output_file` is ignored unless you include `MermaidFileHandler` manually.
 - `append` (bool): If `True`, adds new handlers without removing existing ones. Defaults to `False`.
+- `overwrite` (bool): If `True` (default), overwrites the output file on each restart. If `False`, appends to the existing file.
 - `async_mode` (bool): If `True`, uses a non-blocking background thread for logging (QueueHandler). Recommended for production. Defaults to `False`.
 - `level` (int): Logger level. Defaults to `logging.INFO`.
 - `config_overrides` (Optional[Dict[str, Any]]): Overrides for global config keys (MermaidConfig fields).

@@ -7,61 +7,28 @@ ensures thread-safe file writing.
 """
 
 import logging
+import logging.handlers
 import os
+from typing import Any, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 
 
-class MermaidFileHandler(logging.FileHandler):
+class MermaidHandlerMixin:
     """
-    A custom logging handler that writes `FlowEvent` objects to a Mermaid (.mmd) file.
-
-    Strategy & Optimization:
-    1. **Inheritance**: Inherits from `logging.FileHandler` to leverage robust,
-       thread-safe file writing capabilities (locking, buffering) provided by the stdlib.
-    2. **Header Management**: Automatically handles the Mermaid file header
-       (`sequenceDiagram`, `title`, `autonumber`) to ensure the output file
-       is a valid Mermaid document. It smartly detects if the file is new or
-       being appended to.
-    3. **Deferred Formatting**: The actual string conversion happens in the `emit`
-       method (via the formatter), keeping the handler focused on I/O.
-    4. **Lazy Initialization**: File opening and header writing are deferred until
-       the first log is emitted, supporting `delay=True` correctly.
+    Mixin to provide Mermaid-specific logic to logging handlers.
     """
 
-    def __init__(
-        self,
-        filename: str,
-        title: str = "Log Flow",
-        mode: str = "a",
-        encoding: str = "utf-8",
-        delay: bool = False,
-    ):
-        """
-        Initialize the Mermaid file handler.
-
-        Args:
-            filename (str): The path to the output .mmd file.
-            title (str, optional): The title of the Mermaid diagram. Defaults to "Log Flow".
-            mode (str, optional): File open mode. 'w' (overwrite) or 'a' (append). Defaults to "a".
-            encoding (str, optional): File encoding. Defaults to "utf-8".
-            delay (bool, optional): If True, file opening is deferred until the first call to emit.
-                                   Useful to avoid creating empty files if no logs occur. Defaults to False.
-        """
-        # Ensure the directory exists to prevent FileNotFoundError when opening the file
-        os.makedirs(os.path.dirname(os.path.abspath(filename)) or ".", exist_ok=True)
-
-        # Initialize the parent FileHandler
-        # We rely on super() to handle the 'delay' logic for opening the stream.
-        super().__init__(filename, mode, encoding, delay)
-        self.title = title
-        # Ensure the terminator is always a newline, as Mermaid files are line-based.
-        self.terminator = "\n"
+    title: str
+    terminator: str
+    # These are provided by logging.Handler or its subclasses
+    formatter: Optional[logging.Formatter]
+    stream: Any
 
     def _write_header(self) -> None:
         """
         Writes the initial Mermaid syntax lines to the file.
-
-        It attempts to use the attached formatter's `get_header` method if available,
-        otherwise falls back to a default Mermaid sequence diagram header.
         """
         # Default header if no formatter is available
         header = f"sequenceDiagram\n    title {self.title}\n    autonumber\n\n"
@@ -69,7 +36,7 @@ class MermaidFileHandler(logging.FileHandler):
         if self.formatter and hasattr(self.formatter, "get_header"):
             try:
                 # Use formatter's header if it provides one
-                header = self.formatter.get_header(self.title)
+                header = getattr(self.formatter, "get_header")(self.title)
                 # Ensure it ends with at least one newline for safety
                 if not header.endswith("\n"):
                     header += "\n"
@@ -85,60 +52,134 @@ class MermaidFileHandler(logging.FileHandler):
     def emit(self, record: logging.LogRecord) -> None:
         """
         Process a log record and write it to the Mermaid file.
-
-        This method overrides the parent's emit method to:
-        1. Filter out non-FlowEvent records
-        2. Lazily write the file header if the file is empty/new
-        3. Handle intelligent collapsing via the formatter
-        4. Delegate writing to the parent class
-
-        Args:
-            record (logging.LogRecord): The log record to process
+        Handles rotation if the parent class supports it.
         """
         # Only process records that contain our structured FlowEvent data
-        if hasattr(record, "flow_event"):
-            # Ensure stream is open
-            if self.stream is None:
-                self.stream = self._open()
+        if not hasattr(record, "flow_event"):
+            return
 
-            # Check if we need to write the header.
-            # If the file is empty (position 0), it's either a new file (w)
-            # or an empty existing file (a). In both cases, we need a header.
-            if self.stream.tell() == 0:
+        try:
+            # 1. Handle Rotation (for RotatingFileHandler and TimedRotatingFileHandler)
+            if hasattr(self, "shouldRollover") and getattr(self, "shouldRollover")(
+                record
+            ):
+                getattr(self, "doRollover")()
+
+            # 2. Ensure stream is open (handles delay=True)
+            if self.stream is None:
+                if hasattr(self, "_open"):
+                    self.stream = getattr(self, "_open")()
+
+            # 3. Check if we need to write the header.
+            # If the file is empty (position 0), it's either a new file,
+            # an empty existing file, or a freshly rotated file.
+            if self.stream and hasattr(self.stream, "tell") and self.stream.tell() == 0:
                 self._write_header()
 
-            # Format the record. Our custom MermaidFormatter might return an empty string
+            # 4. Format the record.
+            # Our custom MermaidFormatter might return an empty string
             # if it's currently collapsing/buffering repetitive calls.
-            msg = self.format(record)
-            if msg:
-                # If we have a message (either a single event or a flushed collapsed batch),
-                # write it to the stream.
-                if self.stream:
+            if hasattr(self, "format"):
+                msg = getattr(self, "format")(record)
+                if msg and self.stream:
                     self.stream.write(msg + self.terminator)
-                    # We do NOT call self.flush() here because that would
-                    # trigger formatter.flush() and clear our collapsing buffer.
-                    # Standard FileHandler.emit does not call flush() either.
-                    # The OS and Python's internal buffering handle performance.
+                    # Note: We do NOT call self.flush() here to allow
+                    # the formatter's collapsing buffer to work correctly.
+        except Exception:
+            if hasattr(self, "handleError"):
+                getattr(self, "handleError")(record)
 
     def flush(self) -> None:
         """
         Flushes both the underlying file stream and any buffered events in the formatter.
         """
-        # 1. Flush any collapsed batch remaining in the formatter
         if self.formatter and hasattr(self.formatter, "flush"):
             try:
-                msg = self.formatter.flush()
+                msg = getattr(self.formatter, "flush")()
                 if msg and self.stream:
                     self.stream.write(msg + self.terminator)
             except Exception:
                 pass
 
-        # 2. Flush the file stream
-        super().flush()
+        # Use hasattr to check if super() has flush, to avoid Mypy errors with mixins
+        super_flush = getattr(super(), "flush", None)
+        if callable(super_flush):
+            super_flush()
 
     def close(self) -> None:
         """
         Ensures all buffered events are written before closing the file.
         """
         self.flush()
-        super().close()
+        super_close = getattr(super(), "close", None)
+        if callable(super_close):
+            super_close()
+
+
+class MermaidFileHandler(MermaidHandlerMixin, logging.FileHandler):
+    """
+    A custom logging handler that writes `FlowEvent` objects to a Mermaid (.mmd) file.
+    """
+
+    def __init__(
+        self,
+        filename: str,
+        title: str = "Log Flow",
+        mode: str = "a",
+        encoding: str = "utf-8",
+        delay: bool = False,
+    ):
+        os.makedirs(os.path.dirname(os.path.abspath(filename)) or ".", exist_ok=True)
+        super().__init__(filename, mode, encoding, delay)
+        self.title = title
+        self.terminator = "\n"
+
+
+class RotatingMermaidFileHandler(
+    MermaidHandlerMixin, logging.handlers.RotatingFileHandler
+):
+    """
+    Rotating version of the MermaidFileHandler.
+    """
+
+    def __init__(
+        self,
+        filename: str,
+        title: str = "Log Flow",
+        mode: str = "a",
+        maxBytes: int = 0,
+        backupCount: int = 0,
+        encoding: str = "utf-8",
+        delay: bool = False,
+    ):  # noqa: PLR0913
+        os.makedirs(os.path.dirname(os.path.abspath(filename)) or ".", exist_ok=True)
+        super().__init__(filename, mode, maxBytes, backupCount, encoding, delay)
+        self.title = title
+        self.terminator = "\n"
+
+
+class TimedRotatingMermaidFileHandler(
+    MermaidHandlerMixin, logging.handlers.TimedRotatingFileHandler
+):
+    """
+    Timed rotating version of the MermaidFileHandler.
+    """
+
+    def __init__(
+        self,
+        filename: str,
+        title: str = "Log Flow",
+        when: str = "h",
+        interval: int = 1,
+        backupCount: int = 0,
+        encoding: str = "utf-8",
+        delay: bool = False,
+        utc: bool = False,
+        atTime: Any = None,
+    ):  # noqa: PLR0913
+        os.makedirs(os.path.dirname(os.path.abspath(filename)) or ".", exist_ok=True)
+        super().__init__(
+            filename, when, interval, backupCount, encoding, delay, utc, atTime
+        )
+        self.title = title
+        self.terminator = "\n"

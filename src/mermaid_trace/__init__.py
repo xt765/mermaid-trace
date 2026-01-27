@@ -28,7 +28,11 @@ Usage Example:
 
 from .core.decorators import trace_interaction, trace
 from .core.utils import trace_class, patch_object
-from .handlers.mermaid_handler import MermaidFileHandler
+from .handlers.mermaid_handler import (
+    MermaidFileHandler,
+    RotatingMermaidFileHandler,
+    TimedRotatingMermaidFileHandler,
+)
 from .handlers.async_handler import AsyncMermaidHandler
 from .core.events import Event, FlowEvent
 from .core.context import LogContext
@@ -41,6 +45,8 @@ __all__ = [
     "trace_class",
     "patch_object",
     "MermaidFileHandler",
+    "RotatingMermaidFileHandler",
+    "TimedRotatingMermaidFileHandler",
     "AsyncMermaidHandler",
     "Event",
     "FlowEvent",
@@ -64,11 +70,12 @@ def configure_flow(
     output_file: str = "flow.mmd",
     handlers: Optional[List[logging.Handler]] = None,
     append: bool = False,
+    overwrite: bool = True,
     async_mode: bool = False,
     level: int = logging.INFO,
     config_overrides: Optional[Dict[str, Any]] = None,
     queue_size: Optional[int] = None,
-) -> logging.Logger:
+) -> logging.Logger:  # noqa: PLR0913
     """
     Configures the flow logger to output to a Mermaid file.
 
@@ -86,6 +93,8 @@ def configure_flow(
                                                     Useful if you want to stream logs to other destinations.
         append (bool): If True, adds the new handler(s) without removing existing ones.
                        Defaults to False (clears existing handlers to prevent duplicate logging).
+        overwrite (bool): If True, overwrites the output file if it already exists.
+                         If False, appends to the existing file. Defaults to True.
         async_mode (bool): If True, uses a non-blocking background thread for logging (QueueHandler).
                            Recommended for high-performance production environments to avoid
                            blocking the main execution thread during file I/O.
@@ -123,7 +132,8 @@ def configure_flow(
     else:
         # Create default Mermaid handler
         # This handler knows how to write the Mermaid header and format events
-        handler = MermaidFileHandler(output_file)
+        mode = "w" if overwrite else "a"
+        handler = MermaidFileHandler(output_file, mode=mode)
         handler.setFormatter(MermaidFormatter())
         target_handlers = [handler]
 

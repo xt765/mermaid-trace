@@ -2,39 +2,8 @@ sequenceDiagram
     title Log Flow
     autonumber
 
-Client->>WebPortal: GET /users/
-WebPortal->>WebPortal: List Users Endpoint(db=<Session>)
-WebPortal->>UserService: Get Users(<UserService>)
-UserService->>Database: SQL: SELECT/QUERY(<Session>, <Select>)
-Database-->>UserService: Return: <ChunkedIteratorResult>
-UserService-->>WebPortal: Return: [<UserDB>, <UserDB>, <UserDB>, <UserDB>, <UserDB>]
-Client->>WebPortal: GET /docs
-WebPortal-->>Client: Return: 200 (0.5ms)
-Client->>WebPortal: GET /openapi.json
-WebPortal-->>Client: Return: 200 (13.4ms)
-Client->>WebPortal: GET /users/
-WebPortal->>WebPortal: List Users Endpoint(db=<Session>)
-WebPortal->>UserService: Get Users(<UserService>)
-UserService->>Database: SQL: SELECT/QUERY(<Session>, <Select>)
-Database-->>UserService: Return: <ChunkedIteratorResult>
-UserService-->>WebPortal: Return: [<UserDB> x 5]
-WebPortal-->>WebPortal: Return: [<UserDB> x 5]
-WebPortal-->>Client: Return: 200 (8.2ms)
-Client->>WebPortal: POST /users/ (x3)
-WebPortal-->>Client: Return: 422 (5.4ms) (x3)
-WebPortal->>WebPortal: Create User Endpoint(db=<Session>, user=UserCreate(username='strding', email='string'))
-WebPortal->>Database: SQL: SELECT/QUERY(<Session>, <Select>)
-Database-->>WebPortal: Return: <ChunkedIteratorResult>
-WebPortal->>UserService: Create User(<UserService>, UserCreate(username='strding', email='string'))
-UserService->>Database: SQL: INSERT(<Session>, <UserDB>)
-Database-->>UserService: Return: None
-UserService->>Database: SQL: COMMIT(<Session>)
-Database-->>UserService: Return: None
-UserService->>Database: SQL: SELECT/QUERY(<Session>, <Select>, params={'pk_1': 6}, execution_options=immutabledict({'_sa_orm...t 0x000001B8842A93D0>)}), bind_arguments=immutabledict({}))
-Database-->>UserService: Return: <ChunkedIteratorResult>
-UserService-->>WebPortal: Return: <UserDB>
-WebPortal-->>WebPortal: Return: <UserDB>
-WebPortal-->>Client: Return: 200 (19.5ms)
+Client->>WebPortal: POST /users/
+WebPortal-->>Client: Return: 422 (1.7ms)
 Client->>WebPortal: GET /users/
 WebPortal->>WebPortal: List Users Endpoint(db=<Session>)
 WebPortal->>UserService: Get Users(<UserService>)

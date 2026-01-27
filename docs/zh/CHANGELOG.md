@@ -5,6 +5,16 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/)（语义化版本控制）。
 
+## [0.5.3] - 2026-01-27
+
+### 新增
+- **日志轮转**: 引入了 `RotatingMermaidFileHandler` 和 `TimedRotatingMermaidFileHandler`，支持按大小或时间自动切割 `.mmd` 文件，解决长运行系统的日志膨胀问题。
+- **覆盖模式支持**: 在 `configure_flow` 中新增 `overwrite` 参数，允许在应用重启时自动清空旧图表文件。
+
+### 改进
+- **文档体系**: 全面更新了中英文文档集，包括用户指南、API 参考以及详尽的源代码中文注释，确保文档与最新代码同步。
+- **示例教程**: 新增 `08-log-rotation.py` 示例，展示如何在生产环境中配置日志轮转。
+
 ## [0.5.2] - 2026-01-27
 
 ### 新增
