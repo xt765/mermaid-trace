@@ -303,7 +303,27 @@ class MermaidFormatter(BaseFormatter):
         Returns:
             str: Escaped message text
         """
-        # Replace newlines with <br/> for proper display in Mermaid diagrams
+        if not msg:
+            return ""
+
+        # 1. Replace newlines with <br/>
         msg = msg.replace("\n", "<br/>")
-        # Additional escaping could be added here if needed for other characters
+
+        # 2. Escape parentheses and special characters that break Mermaid syntax
+        # Mermaid messages are usually after a colon ": message"
+        # Characters like [ ] ( ) { } ; # can be problematic if not handled
+        
+        # We wrap the message in quotes if it contains problematic characters
+        # But Mermaid sequence diagrams actually support most characters if they are NOT used as keywords
+        # The most common issue is characters that interfere with the arrow or participant parsing
+        
+        # Replace problematic characters with safer alternatives or escape them
+        # Note: Mermaid doesn't have a universal escape character like backslash for all cases,
+        # but for sequence diagrams, using Unicode alternatives or just stripping them is often safer.
+        
+        msg = msg.replace("(", "（").replace(")", "）")
+        msg = msg.replace("[", "［").replace("]", "］")
+        msg = msg.replace(";", "；")
+        msg = msg.replace("#", "＃")
+
         return msg
