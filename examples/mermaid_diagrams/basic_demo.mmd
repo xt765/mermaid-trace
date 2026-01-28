@@ -1,0 +1,13 @@
+sequenceDiagram
+    title Log Flow
+    autonumber
+
+Client->>OrderService: Place Order(1, [{...} x 2], 'credit_card')
+OrderService->>UserService: Validate User(1)
+UserService-->>OrderService: Return: True
+OrderService->>OrderService: Generate Order ID
+OrderService-->>OrderService: Return: 12345
+OrderService->>OrderService: Calculate Total([{...} x 2])
+OrderService-->>OrderService: Return: 250
+OrderService->>PaymentGateway: Process Credit Card Payment(250)
+PaymentGateway-->>OrderService: Return: 'success'

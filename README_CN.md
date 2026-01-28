@@ -1,4 +1,6 @@
-# MermaidTrace: 能画图的 Python 日志工具
+# MermaidTrace: 让你的 Python 代码逻辑“看”得见
+
+**别再深陷于晦涩的日志流了。只需一行代码，自动将复杂的执行逻辑转化为清晰的 Mermaid 时序图。**
 
 🌐 **语言**: [English](README.md) | [中文](README_CN.md)
 
@@ -10,28 +12,157 @@
 
 ---
 
-## 📋 概述
+## ⚡️ 5秒钟看懂 MermaidTrace
 
-**别再干读日志了。开始“看”懂它们吧。**
+#### 1. 原始代码 (15+ 行)
 
-MermaidTrace 是一个专业的日志工具，能从你的代码执行中自动生成 [Mermaid JS](https://mermaid.js.org/) 时序图。它非常适合可视化复杂的业务逻辑、微服务交互或异步流程。
+```python
+@trace(source="User", target="OrderSys")
+def create_order(user_id, items):
+    # 复杂的业务校验
+    if not check_inventory(items):
+        return "Out of Stock"
+
+    # 嵌套的逻辑调用
+    price = calculate_price(items)
+    discount = get_discount(user_id)
+    final = price - discount
+
+    # 外部服务交互
+    res = pay_service.process(final)
+    if res.success:
+        update_stock(items)
+        send_notif(user_id)
+        return "Success"
+    return "Failed"
+```
+
+#### 2. MermaidTrace 自动生成的时序图
+
+```mermaid
+sequenceDiagram
+    autonumber
+    User->>OrderSys: create_order(user_id, items)
+    activate OrderSys
+    OrderSys->>Inventory: check_inventory(items)
+    Inventory-->>OrderSys: True
+    OrderSys->>Pricing: calculate_price(items)
+    Pricing-->>OrderSys: 100.0
+    OrderSys->>UserDB: get_discount(user_id)
+    UserDB-->>OrderSys: 5.0
+    OrderSys->>PayService: process(95.0)
+    activate PayService
+    PayService-->>OrderSys: success
+    deactivate PayService
+    OrderSys->>Inventory: update_stock(items)
+    OrderSys->>Notification: send_notif(user_id)
+    OrderSys-->>User: "Success"
+    deactivate OrderSys
+```
 
 ---
 
-## 📚 文档
+## 🚀 动态演示与在线试用
+
+### 🎬 快速演示
+
+```mermaid
+sequenceDiagram
+    participant CLI as mermaid-trace CLI
+    participant App as Python App
+    participant Web as Live Preview
+
+    Note over CLI, Web: 开启实时预览模式
+    CLI->>Web: 启动 HTTP 服务 (localhost:8000)
+    App->>App: 运行业务逻辑 (带 @trace 装饰器)
+    App->>App: 自动更新 flow.mmd
+    Web->>Web: 检测到文件变化 (Hot Reload)
+    Web-->>CLI: 渲染最新时序图
+```
+
+*(从代码添加装饰器到浏览器实时预览，全流程只需10秒)*
+
+### 🛠️ 在线试用 (Google Colab)
+
+无需安装环境，在浏览器中立即体验核心功能：
+
+[![在 Colab 中打开](https://img.shields.io/badge/Colab-在%20Colab%20中打开-blue?style=flat&logo=google-colab&logoColor=white)](https://colab.research.google.com/github/xt765/mermaid-trace/blob/main/examples/MermaidTrace_Demo_CN.ipynb)
+
+---
+
+## 📚 文档中心
 
 ### 核心文档
 
-[用户指南](docs/zh/USER_GUIDE.md) · [API 参考](docs/zh/API.md) · [贡献指南](docs/zh/CONTRIBUTING.md) · [更新日志](docs/zh/CHANGELOG.md) · [许可证](docs/zh/LICENSE)
+[用户指南](docs/zh/USER_GUIDE.md) · [API 参考](docs/zh/API.md) · [贡献指南](docs/zh/CONTRIBUTING.md) · [更新日志](docs/zh/UPDATE_LOG.md) · [许可证](LICENSE)
 
-### 代码注释文档 (中文)
+### 源码详细注释 (中文)
 
-| 类别 | 链接 |
-| :--- | :--- |
-| **核心模块** | [Context](docs/zh/code_comments/src/mermaid_trace/core/context.md) · [Decorators](docs/zh/code_comments/src/mermaid_trace/core/decorators.md) · [Events](docs/zh/code_comments/src/mermaid_trace/core/events.md) · [Formatter](docs/zh/code_comments/src/mermaid_trace/core/formatter.md) |
-| **处理器** | [Async Handler](docs/zh/code_comments/src/mermaid_trace/handlers/async_handler.md) · [Mermaid Handler](docs/zh/code_comments/src/mermaid_trace/handlers/mermaid_handler.md) |
-| **集成** | [FastAPI](docs/zh/code_comments/src/mermaid_trace/integrations/fastapi.md) |
-| **其他** | [init](docs/zh/code_comments/src/mermaid_trace/__init__.md) · [CLI](docs/zh/code_comments/src/mermaid_trace/cli.md) |
+| 分类                        | 文档链接                                                                                                                                                                                                                                                                                                                 |
+| :-------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **核心模块**          | [上下文 (Context)](docs/zh/code_comments/src/mermaid_trace/core/context.md) · [装饰器 (Decorators)](docs/zh/code_comments/src/mermaid_trace/core/decorators.md) · [事件系统 (Events)](docs/zh/code_comments/src/mermaid_trace/core/events.md) · [格式化器 (Formatter)](docs/zh/code_comments/src/mermaid_trace/core/formatter.md) |
+| **处理器 (Handlers)** | [异步处理器 (Async)](docs/zh/code_comments/src/mermaid_trace/handlers/async_handler.md) · [Mermaid 处理器](docs/zh/code_comments/src/mermaid_trace/handlers/mermaid_handler.md)                                                                                                                                               |
+| **框架集成**          | [FastAPI 集成](docs/zh/code_comments/src/mermaid_trace/integrations/fastapi.md)                                                                                                                                                                                                                                             |
+| **其他**              | [入口 (Init)](docs/zh/code_comments/src/mermaid_trace/__init__.md) · [命令行 (CLI)](docs/zh/code_comments/src/mermaid_trace/cli.md)                                                                                                                                                                                           |
+
+---
+
+## 🎯 为什么选择 MermaidTrace？（应用场景）
+
+### 1. 快速接手“屎山”代码
+
+**痛点**：接手维护一个逻辑极其复杂、缺乏文档的遗留项目，完全看不懂函数间的调用关系。
+**方案**：在入口函数添加 `@trace_class` 或 `@trace`，运行一遍代码。
+**价值**：一键生成完整的业务执行路径图，瞬间理清代码脉络。
+
+### 2. 自动化技术文档
+
+**痛点**：手动绘制时序图非常耗时，且代码更新后文档往往滞后。
+**方案**：在开发阶段集成 MermaidTrace。
+**价值**：让代码自己生成文档，确保图表与代码逻辑始终 100% 同步。
+
+### 3. 调试复杂递归与并发
+
+**痛点**：多层嵌套调用或异步并发时，`print` 日志交织在一起，极难调试。
+**方案**：利用 MermaidTrace 的异步支持和智能折叠功能。
+**价值**：可视化递归深度与并发顺序，快速定位逻辑瓶颈或异常点。
+
+---
+
+## 🚀 3步快速开始
+
+### 1. 安装
+
+```bash
+pip install mermaid-trace
+```
+
+### 2. 在代码中添加装饰器
+
+```python
+from mermaid_trace import trace, configure_flow
+
+# 配置输出文件
+configure_flow("my_flow.mmd")
+
+@trace(source="User", target="AuthService")
+def login(username):
+    return verify_db(username)
+
+@trace(source="AuthService", target="DB")
+def verify_db(username):
+    return True
+
+login("admin")
+```
+
+### 3. 查看图表
+
+运行代码后，使用内置 CLI 工具实时预览（支持热重载）：
+
+```bash
+mermaid-trace serve my_flow.mmd
+```
 
 ---
 
@@ -40,124 +171,10 @@ MermaidTrace 是一个专业的日志工具，能从你的代码执行中自动�
 - **装饰器驱动**：只需在函数上添加 `@trace` 或 `@trace_interaction` 即可。
 - **批量追踪**：使用 `@trace_class` 一次性追踪整个类的方法。
 - **第三方库追踪**：使用 `patch_object` 对外部库方法做 patch 并加入追踪。
-- **自动绘图**：生成 `.mmd` 文件，可在 VS Code、GitHub 或 Mermaid Live Editor 中查看。
-- **异步支持**：无缝支持 `asyncio`协程。
-- **上下文推断**：利用 `contextvars` 自动追踪嵌套调用并推断 `source`（调用方）参与者。
-- **智能折叠**：通过折叠重复的高频调用和识别循环模式（如循环调用），防止时序图过载。
-- **详细异常堆栈**：自动捕获完整的错误堆栈追踪，并在图表中通过 Note 显示。
-- **对象显示优化**：自动清理内存地址（例如 `<__main__.Obj at 0x...>` -> `<Obj>`），并**自动合并列表/元组中连续的相同项**（例如 `[<Obj> x 5]`），使图表更整洁。
-- **日志轮转**：支持 `RotatingMermaidFileHandler`，通过按大小或时间切割日志文件，轻松应对长运行系统的日志膨胀问题。
-- **FastAPI 集成**：内置中间件，实现零配置的 HTTP 请求追踪，支持通过 `X-Trace-ID` 和 `X-Source` 请求头进行分布式追踪。
-- **CLI 工具**：内置带热重载功能的查看器，可在浏览器中即时预览图表。
-
----
-
-## 🚀 快速开始
-
-### 安装
-
-```bash
-pip install mermaid-trace
-```
-
-### 基础用法
-
-```python
-from mermaid_trace import trace, configure_flow
-import time
-
-# 1. 配置输出文件
-# 建议将图表存放在专门的目录中（如 mermaid_diagrams/）以保持项目整洁。
-configure_flow("mermaid_diagrams/my_flow.mmd", async_mode=True)
-
-# 2. 添加装饰器
-@trace(source="Client", target="PaymentService", action="Process Payment")
-def process_payment(amount):
-    if check_balance(amount):
-        return "Success"
-    return "Failed"
-
-@trace(source="PaymentService", target="Database", action="Check Balance")
-def check_balance(amount):
-    return True
-
-# 3. 运行代码
-process_payment(100)
-```
-
-### 全局配置
-
-你可以通过 `configure_flow` 或环境变量来配置全局设置，以控制性能和行为。
-
-```python
-configure_flow(
-    "flow.mmd", 
-    overwrite=True,    # 每次运行是否覆盖原文件（默认为 True）
-    level=logging.DEBUG, 
-    queue_size=5000,  # 增加队列缓冲区以应对高并发
-    config_overrides={
-        "capture_args": False,       # 关闭参数捕获以获得最高性能
-        "max_string_length": 100     # 增加字符串截断长度
-    }
-)
-```
-
-**环境变量支持：**
-
-- `MERMAID_TRACE_CAPTURE_ARGS` (true/false)
-- `MERMAID_TRACE_MAX_STRING_LENGTH` (int)
-- `MERMAID_TRACE_MAX_ARG_DEPTH` (int)
-- `MERMAID_TRACE_QUEUE_SIZE` (int)
-
-### 嵌套调用（上下文推断）
-
-你不需要每次都指定 `source`（调用方）。MermaidTrace 会根据当前上下文自动推断。
-
-```python
-@trace(source="Client", target="API")
-def main():
-    # 在这里，当前的参与者是 "API"
-    service_call()
-
-@trace(target="Service") # source 被自动推断为 "API"
-def service_call():
-    pass
-```
-
-### FastAPI 集成
-
-```python
-from fastapi import FastAPI
-from mermaid_trace.integrations.fastapi import MermaidTraceMiddleware
-
-app = FastAPI()
-app.add_middleware(MermaidTraceMiddleware, app_name="MyAPI")
-
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-```
-
-### CLI 查看器
-
-即时可视化生成的 `.mmd` 文件：
-
-```bash
-mermaid-trace serve my_flow.mmd
-```
-
-### 示例教程
-
-请查看 [examples/](examples/) 目录，了解涵盖所有功能的完整示例集：
-
-- **[基础用法](examples/01_basic_usage.py)**：装饰器与类方法追踪。
-- **[高级插桩](examples/02_advanced_instrumentation.py)**：`@trace_class` 与 `patch_object`（针对第三方库）。
-- **[异步与并发](examples/03_async_concurrency.py)**：`asyncio` 追踪与并发上下文隔离。
-- **[错误处理](examples/04_error_handling.py)**：堆栈捕获与错误箭头渲染。
-- **[智能折叠](examples/05_intelligent_collapsing.py)**：在循环中保持图表整洁。
-- **[FastAPI 集成](examples/06_fastapi_integration.py)**：Web 应用中间件集成。
-- **[全栈综合应用](examples/07_full_stack_app.py)**：结合 FastAPI、SQLAlchemy 和 Pydantic 的全链路追踪示例。
-- **[日志轮转](examples/08-log-rotation.py)**：演示如何使用日志轮转处理长运行进程。
+- **异步支持**：无缝支持 `asyncio` 协程与并发。
+- **智能折叠**：自动折叠重复的高频调用和识别循环模式，防止图表过载。
+- **FastAPI 集成**：内置中间件，实现零配置的 HTTP 请求追踪。
+- **详细异常堆栈**：自动捕获完整的错误堆栈并在图表中显示。
 
 ---
 
