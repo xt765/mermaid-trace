@@ -4,14 +4,14 @@
 
 🌐 **Language**: [English](README.md) | [中文](README_CN.md)
 
+[![CSDN Blog](https://img.shields.io/badge/CSDN-玄同765-orange?style=flat-square&logo=csdn)](https://blog.csdn.net/Yunyi_Chi)
+[![GitHub](https://img.shields.io/badge/GitHub-mermaid--trace-black?style=flat-square&logo=github)](https://github.com/xt765/mermaid-trace)
+[![Gitee](https://img.shields.io/badge/Gitee-mermaid--trace-red?style=flat-square&logo=gitee)](https://gitee.com/xt765/mermaid-trace)
 [![PyPI version](https://img.shields.io/pypi/v/mermaid-trace.svg?style=flat-square&color=blue)](https://pypi.org/project/mermaid-trace/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/mermaid-trace.svg?style=flat-square&color=blue)](https://pypi.org/project/mermaid-trace/)
 [![License](https://img.shields.io/github/license/xt765/mermaid-trace?style=flat-square)](LICENSE)
 [![CI Status](https://img.shields.io/github/actions/workflow/status/xt765/mermaid-trace/ci.yml?style=flat-square&label=CI)](https://github.com/xt765/mermaid-trace/actions/workflows/ci.yml)
 [![Codecov](https://img.shields.io/codecov/c/github/xt765/mermaid-trace?style=flat-square&logo=codecov)](https://codecov.io/gh/xt765/mermaid-trace)
-[![CSDN Blog](https://img.shields.io/badge/CSDN-玄同765-orange?style=flat-square&logo=csdn)](https://blog.csdn.net/Yunyi_Chi)
-[![GitHub](https://img.shields.io/badge/GitHub-mermaid--trace-black?style=flat-square&logo=github)](https://github.com/xt765/mermaid-trace)
-[![Gitee](https://img.shields.io/badge/Gitee-mermaid--trace-red?style=flat-square&logo=gitee)](https://gitee.com/xt765/mermaid-trace)
 
 ---
 
