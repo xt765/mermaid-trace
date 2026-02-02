@@ -64,7 +64,7 @@ from .integrations import MermaidTraceMiddleware, add_mermaid_trace_middleware
 
 
 # Version information
-__version__ = "0.1.0"
+__version__ = "0.6.0"
 __author__ = "MermaidTrace Team"
 __license__ = "MIT"
 

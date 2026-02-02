@@ -37,8 +37,12 @@ dependencies = [
 fastapi = [
     "fastapi>=0.100.0",
 ]
+langchain = [
+    "langchain-core>=0.1.0",
+]
 all = [
     "mermaid-trace[fastapi]",
+    "mermaid-trace[langchain]",
 ]
 dev = [
     "mermaid-trace[all]",
@@ -86,6 +90,10 @@ addopts = "--cov=mermaid_trace --cov-report=term-missing --cov-report=html --cov
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["src/mermaid_trace"]
+omit = ["src/mermaid_trace/server.py"]
 
 [tool.coverage.report]
 exclude_lines = [

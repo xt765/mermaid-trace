@@ -1,5 +1,57 @@
 # 更新日志 (UPDATE_LOG)
 
+## [2026-02-02] - 增强型 Web 预览 (Master 模式) 与 UI 优化
+
+### 核心功能更新：Master 模式
+- **基于 FastAPI 的增强服务器**: 实现了 `run_server` 函数，利用 FastAPI 搭建高性能 Web 预览后端。
+- **SSE 实时通信**: 引入 Server-Sent Events (SSE) 机制，实现 `.mmd` 文件更新时的前端零延迟自动刷新。
+- **交互式渲染引擎**: 
+  - 集成 `mermaid.js` 异步渲染逻辑，提升大型图表的加载性能。
+  - 引入 `svg-pan-zoom` 库，支持图表的自由缩放和平移操作，极大改善了复杂流程的可视化体验。
+- **智能目录管理**: 
+  - 侧边栏支持实时展示工作目录下的所有 `.mmd` 文件。
+  - 支持在不重启服务器的情况下，点击侧边栏动态切换预览不同的图表。
+- **CLI 深度集成**: 扩展了 `mermaid-trace serve` 命令，新增 `--master` 标志位，支持一键开启增强预览模式。
+
+### UI/UX 改进
+- **布局重构**: 采用 Flex 布局彻底重构了预览界面的容器结构，修复了在某些分辨率下垂直方向显示不全的问题。
+- **自动适应**: 移除了 SVG 的固定宽高限制，确保图表能够根据容器大小自适应调整。
+
+### 代码质量与文档同步
+- **测试用例更新**: 适配了 CLI 的 `master` 参数变化，确保 `test_cli_main` 和 `test_cli_main_master` 覆盖所有入口场景。
+- **文档全量更新**:
+  - 创建了 `server.md` (中/英) 代码注释文档，详细记录了增强服务器的实现原理。
+  - 更新了 `cli.md` (中/英) 文档，同步了 Master 模式的命令行参数说明。
+  - 同步更新了 `README.md` 和 `README_CN.md` 中的使用示例。
+
+## [2026-02-02] - LangChain 集成、全面 QA 检查与文档同步
+
+### LangChain 框架集成与关键问题修复
+- **回调处理器实现**: 实现了 `MermaidTraceCallbackHandler`，支持 LangChain 全生命周期事件捕获。
+- **日志记录协议对齐**: 修复了 `MermaidTraceCallbackHandler` 缺失 `extra={"flow_event": event}` 参数的问题，确保所有 LangChain 事件能正确被 `MermaidFileHandler` 捕获并生成 Mermaid 语法。
+- **空文件问题修复**: 解决了在 LangChain 集成下生成的 `.mmd` 文件内容为空的严重问题。
+- **多组件支持**: 深度集成 Chain、LLM、ChatModel、Tool 和 Retriever（检索器），可自动可视化 RAG 流程和 Agent 决策路径。
+- **嵌套调用追踪**: 引入内部参与者栈（Participant Stack）机制，确保在深层嵌套调用下，Mermaid 时序图的返回箭头（`-->>`）能够精准指向发起方。
+- **健壮性优化**: 采用条件导入机制，确保 `langchain-core` 为可选依赖，不影响核心库的独立使用。
+
+### 代码质量与测试验证
+- **全量 QA 检查**:
+    - **Ruff**: 通过全量代码静态检查与格式化，无规范错误。
+    - **Mypy**: 修复了 `langchain.py` 中的类型注解错误及可选依赖导致的导入识别问题，实现 100% 类型安全。
+- **测试驱动开发**:
+    - **测试用例适配**: 同步更新了 `test_langchain.py` 中的测试逻辑，适配新的日志记录协议（通过 `call_args[1]["extra"]["flow_event"]` 访问事件）。
+    - 新增 9 个针对 LangChain 集成的单元测试，覆盖正常流程、嵌套调用及异常场景。
+    - 执行全量测试套件（共 121 个用例），全部成功通过。
+    - **测试覆盖率**: 整体覆盖率达到 **93.34%**，关键逻辑实现全覆盖。
+
+### 文档体系全量同步
+- **核心文档更新**:
+    - 更新 `README.md` 和 `README_CN.md`，新增 LangChain 集成快速入门示例。
+    - 完善 `USER_GUIDE.md` (中/英)，新增 LangChain 章节，详细说明 RAG 追踪、Agent 追踪及参与者栈原理。
+    - 完善 `API.md` (中/英)，新增 `MermaidTraceCallbackHandler` 的详细参数与事件说明。
+- **源代码注释同步**:
+    - 全面更新 `docs/zh/code_comments/src/mermaid_trace/integrations/langchain.md`，确保其中的源代码片段与最新实现完全一致，并提供详尽的中文逻辑解释。
+
 ## [2026-01-27] - 最终验证与提交准备
 
 ### 代码质量与测试验证

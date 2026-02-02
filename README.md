@@ -66,6 +66,11 @@ sequenceDiagram
 ## 🚀 Dynamic Demo & Online Tryout
 
 ### 🎬 Quick Demo
+
+![MermaidTrace Master Preview](docs/images/master_preview.png)
+
+*(Master Preview: Multi-file browsing, live-reload, and interactive pan/zoom)*
+
 ```mermaid
 sequenceDiagram
     participant CLI as mermaid-trace CLI
@@ -134,9 +139,27 @@ login("admin")
 ```
 
 ### 3. View Diagram
-Run your code and use the CLI tool for live preview (with hot-reload):
+
+Run the built-in CLI tool to preview in real-time (with hot-reload):
+
 ```bash
+# Basic preview
 mermaid-trace serve my_flow.mmd
+
+# Master mode (Directory browsing, zoom, multi-file switching)
+mermaid-trace serve . --master
+# Or preview a specific file in Master mode
+mermaid-trace serve .\mermaid_diagrams\examples\08-log-rotation.mmd --master
+```
+
+### 🔗 LangChain Integration
+Visualize LLM chains, agents, and RAG retrieval with a single handler:
+```python
+from mermaid_trace.integrations.langchain import MermaidTraceCallbackHandler
+
+handler = MermaidTraceCallbackHandler(host_name="MyAIApp")
+# Pass to any LangChain object
+chain.invoke({"input": "..."}, config={"callbacks": [handler]})
 ```
 
 ---
@@ -147,8 +170,10 @@ mermaid-trace serve my_flow.mmd
 - **Auto-Instrumentation**: Use `@trace_class` to trace a whole class at once.
 - **Third-Party Patching**: Use `patch_object` to trace calls inside external libraries.
 - **Async Support**: Seamlessly works with `asyncio` coroutines and concurrency.
+- **Enhanced Web UI**: Interactive preview server with file browsing, auto-reload, and pan/zoom support (use `--master`).
 - **Intelligent Collapsing**: Automatically collapses repetitive calls and identifies loops.
 - **FastAPI Integration**: Middleware for zero-config HTTP request tracing.
+- **LangChain Integration**: Callback Handler for LLM chains and agent visualization.
 - **Detailed Exceptions**: Captures full stack traces for errors, displayed in the diagram.
 
 ---

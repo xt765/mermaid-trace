@@ -232,7 +232,7 @@ def _create_handler(
     return Handler
 
 
-def serve(filename: str, port: int = 8000) -> None:
+def serve(filename: str, port: int = 8000, master: bool = False) -> None:
     """
     Starts the local HTTP server and file watcher to preview a Mermaid diagram.
 
@@ -249,7 +249,30 @@ def serve(filename: str, port: int = 8000) -> None:
     Args:
         filename (str): The path to the .mmd file to serve.
         port (int): The port number to bind the server to (default: 8000).
+        master (bool): Whether to use the enhanced Master Preview Server (FastAPI + SSE).
     """
+    # 1. Enhanced Master Mode
+    if master:
+        try:
+            from .server import run_server, HAS_SERVER_DEPS
+
+            if HAS_SERVER_DEPS:
+                # For master mode, we watch the directory of the file
+                target_dir = os.path.dirname(os.path.abspath(filename))
+                if os.path.isdir(filename):
+                    target_dir = os.path.abspath(filename)
+
+                # Open browser first
+                webbrowser.open(f"http://localhost:{port}")
+                run_server(target_dir, port)
+                return
+            else:
+                print(
+                    "Warning: FastAPI/Uvicorn not found. Falling back to basic server."
+                )
+        except ImportError:
+            print("Warning: server module not found. Falling back to basic server.")
+
     # Create a Path object for robust file path handling
     path = Path(filename)
 
@@ -342,6 +365,11 @@ def main() -> None:
     serve_parser.add_argument(
         "--port", type=int, default=8000, help="Port to bind to (default: 8000)"
     )
+    serve_parser.add_argument(
+        "--master",
+        action="store_true",
+        help="Use enhanced Master Preview (requires FastAPI)",
+    )
 
     # Parse the arguments provided by the user
     args = parser.parse_args()
@@ -349,7 +377,7 @@ def main() -> None:
     # Dispatch logic
     if args.command == "serve":
         # Invoke the serve function with parsed arguments
-        serve(args.file, args.port)
+        serve(args.file, args.port, args.master)
 
 
 if __name__ == "__main__":

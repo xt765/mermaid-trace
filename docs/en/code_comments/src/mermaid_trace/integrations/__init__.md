@@ -8,6 +8,7 @@ The `__init__.py` file in the `integrations` directory serves as the package ini
 ### 1. Module Exports
 This file defines what integration components are exposed when importing from the `mermaid_trace.integrations` package:
 - **FastAPI Integration**: Exports the `MermaidTraceMiddleware` and `add_mermaid_trace_middleware` function for FastAPI applications.
+- **LangChain Integration**: Provides `MermaidTraceCallbackHandler` for visualizing LLM execution flows.
 - **Other Integrations**: Can be extended to include integrations with other frameworks and libraries (e.g., Flask, Django, Celery).
 
 ### 2. Package Structure
@@ -35,17 +36,19 @@ Python ecosystems like FastAPI, Flask, Django, and more.
 """
 
 from .fastapi import MermaidTraceMiddleware, add_mermaid_trace_middleware
+from .langchain import MermaidTraceCallbackHandler
 
 
 # Public API exports
 __all__ = [
     "MermaidTraceMiddleware",
     "add_mermaid_trace_middleware",
+    "MermaidTraceCallbackHandler",
 ]
 
 
 # Package metadata
-__version__ = "0.1.0"
+__version__ = "0.6.0"
 __author__ = "MermaidTrace Team"
 __description__ = "Framework integrations for MermaidTrace"
 ```

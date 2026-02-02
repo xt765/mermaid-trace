@@ -1,0 +1,16 @@
+sequenceDiagram
+    title Log Flow
+    autonumber
+
+MyApp -> VectorStoreRetriever: Retrieve
+VectorStoreRetriever -> MyApp: Documents
+MyApp -> RAG_Chain: Run Chain
+RAG_Chain -> GPT-4o: Chat
+GPT-4o -> RAG_Chain: Response
+RAG_Chain -> MyApp: Finish Chain
+MyApp -> VectorStoreRetriever: Retrieve
+VectorStoreRetriever -> MyApp: Documents
+MyApp -> RAG_Chain: Run Chain
+RAG_Chain -> GPT-4o: Chat
+GPT-4o -> RAG_Chain: Response
+RAG_Chain -> MyApp: Finish Chain

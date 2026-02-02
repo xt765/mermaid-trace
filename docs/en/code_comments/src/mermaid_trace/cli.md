@@ -1,163 +1,111 @@
-# File: src/mermaid_trace/cli.py
+# CLI Command Line Interface Module (cli.py)
 
-## Overview
-The `cli.py` module implements the command-line interface (CLI) for MermaidTrace. This CLI provides tools for viewing, managing, and generating Mermaid diagrams, including a live-reload server for previewing diagrams as they're generated.
+`cli.py` is the entry point for the MermaidTrace command-line tools. It provides a local HTTP server to preview generated Mermaid sequence diagrams (.mmd files) in the browser with live-reload support.
 
-## Core Functionality Analysis
+## Core Features
 
-### 1. CLI Commands
-The MermaidTrace CLI provides the following commands:
-- **`serve`**: Starts a local web server with live reload to preview Mermaid diagrams as they change.
-- **`generate`**: Generates Mermaid diagrams from existing trace data.
-- **`convert`**: Converts Mermaid files to other formats (e.g., PNG, SVG).
-- **`list`**: Lists available Mermaid diagram files in the current directory.
+- **Local Preview Server**: Launches a lightweight HTTP server to render Mermaid files as web pages.
+- **Master Enhanced Mode**: Integrates FastAPI and SSE (Server-Sent Events) for an advanced preview interface with file browsing, pan/zoom, and instant updates.
+- **Live Preview & Auto-Reload**: Uses browser-side polling (Basic mode) or SSE (Master mode) to refresh the page automatically when file changes are detected.
+- **File Monitoring**: Integrates the `watchdog` library (optional) for efficient filesystem event monitoring.
+- **Embedded Rendering Engine**: Uses the Mermaid.js CDN to render diagrams on the client side, eliminating the need for complex local graphics libraries.
 
-### 2. `serve` Command
-The `serve` command is the most commonly used CLI feature:
-- **Live Reload**: Automatically refreshes the browser when the Mermaid file changes.
-- **Local Server**: Starts a lightweight HTTP server to serve the diagram preview.
-- **File Watching**: Monitors the specified Mermaid file for changes.
-- **Browser Opening**: Automatically opens the browser to the preview URL.
+## Key Technical Design
 
-### 3. Command-Line Interface Structure
-The CLI uses a modular structure:
-- **Main Parser**: Root command parser that dispatches to subcommands.
-- **Subcommand Parsers**: Individual parsers for each command (serve, generate, convert, list).
-- **Argument Handling**: Properly handles command-line arguments and options for each command.
-- **Help System**: Provides comprehensive help text for all commands and options.
+### 1. HTML Template & Mermaid.js Integration
 
-### 4. Implementation Details
-- **Click Integration**: Uses the Click library for building the CLI, providing a clean, consistent interface.
-- **File System Operations**: Handles file system operations like reading Mermaid files and watching for changes.
-- **Web Server**: Implements a simple HTTP server for the live preview feature.
-- **Signal Handling**: Properly handles signals like SIGINT (Ctrl+C) for graceful shutdown.
+The module contains an `HTML_TEMPLATE` string that includes:
+- **Mermaid.js Loading**: Imports the library from a CDN.
+- **Auto-Reload Logic**: JavaScript `setInterval` calls the `/_status` endpoint every second to compare the file's modification time (mtime).
+- **Error Tolerance**: If file reading fails (e.g., file busy, permission denied, or deleted), the backend injects `mtime = "0"` and generates a Mermaid diagram containing the error message. This ensures the frontend remains stable and provides immediate feedback.
 
-### 5. Error Handling
-- **User-Friendly Errors**: Provides clear, helpful error messages for common issues.
-- **Validation**: Validates command-line arguments and input files before processing.
-- **Fallback Behavior**: Includes fallback behavior for edge cases and unexpected errors.
+### 2. Custom Request Handler Factory (`_create_handler`)
 
-## Source Code with English Comments
+A factory pattern is used to pass dynamic parameters (like filename and path) to the `socketserver`.
 
 ```python
-"""
-Command-line interface for MermaidTrace
+def _create_handler(filename: str, path: Path):
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/":
+                # Render HTML template and inject content
+                ...
+            elif self.path == "/_status":
+                # Return the file's latest modification time (mtime)
+                ...
+    return Handler
+```
 
-This module provides CLI commands for viewing, managing, and generating
-Mermaid diagrams, including a live-reload server for previewing diagrams.
-"""
+### 3. Hybrid Monitoring Mode
 
-import click
-import os
-import time
-import webbrowser
-from http.server import HTTPServer, SimpleHTTPRequestHandler
-from threading import Thread
+- **Watchdog (Server-side)**: If `watchdog` is installed, file change logs are printed to the console in real-time.
+- **Polling (Client-side)**: The browser polls the `/_status` endpoint via Ajax. This is the core mechanism for auto-reload, working even without `watchdog`.
 
+## Source Analysis
 
-@click.group()
-def cli():
+```python
+import argparse
+import http.server
+import socketserver
+from pathlib import Path
+
+# Try to import watchdog for efficient monitoring
+try:
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    HAS_WATCHDOG = True
+except ImportError:
+    HAS_WATCHDOG = False
+
+def serve(filename: str, port: int = 8000, master: bool = False) -> None:
     """
-    MermaidTrace CLI: Tools for working with Mermaid diagrams.
+    Starts the local server.
+    1. If master mode is enabled, calls server.run_server.
+    2. Validates the file path.
+    3. Sets up Watchdog monitoring (optional).
+    4. Creates the HTTP handler.
+    5. Automatically opens the browser.
+    6. Enters the service loop.
     """
-    pass
+    if master:
+        # Try to start the enhanced server
+        try:
+            from .server import run_server, HAS_SERVER_DEPS
+            if HAS_SERVER_DEPS:
+                run_server(target_dir, port)
+                return
+        except ImportError:
+            pass
 
+    path = Path(filename)
+    # ... basic server setup ...
 
-@cli.command()
-@click.argument('file', type=click.Path(exists=True))
-@click.option('--port', default=8000, help='Port to serve on')
-@click.option('--host', default='localhost', help='Host to serve on')
-def serve(file, port, host):
+def main() -> None:
     """
-    Start a live-reload server to preview Mermaid diagrams.
-    
-    FILE: Path to the Mermaid file to preview
+    CLI Command Parsing.
+    Uses argparse to define the 'serve' command and its arguments.
     """
-    # Get absolute path to file
-    file_path = os.path.abspath(file)
-    file_dir = os.path.dirname(file_path)
-    file_name = os.path.basename(file_path)
+    parser = argparse.ArgumentParser(description="MermaidTrace CLI - Preview Mermaid diagrams in browser")
+    subparsers = parser.add_subparsers(dest="command", required=True)
     
-    # Change to file directory
-    original_dir = os.getcwd()
-    os.chdir(file_dir)
-    
-    try:
-        # Create custom handler that injects live reload
-        class MermaidHandler(SimpleHTTPRequestHandler):
-            def end_headers(self):
-                # Inject live reload script for Mermaid files
-                if self.path.endswith('.mmd') or self.path.endswith('.mermaid'):
-                    self.send_header('Content-Type', 'text/html')
-                    self.send_header('Access-Control-Allow-Origin', '*')
-                super().end_headers()
-            
-            def do_GET(self):
-                # Serve Mermaid file as HTML
-                if self.path == '/' + file_name:
-                    self.path = '/' + file_name
-                elif self.path == '/':
-                    # Redirect root to the Mermaid file
-                    self.send_response(302)
-                    self.send_header('Location', '/' + file_name)
-                    self.end_headers()
-                    return
-                super().do_GET()
-        
-        # Create server
-        server_address = (host, port)
-        httpd = HTTPServer(server_address, MermaidHandler)
-        
-        # Start server in background thread
-        server_thread = Thread(target=httpd.serve_forever, daemon=True)
-        server_thread.start()
-        
-        # Open browser
-        url = f'http://{host}:{port}/{file_name}'
-        webbrowser.open(url)
-        
-        # Print status
-        click.echo(f'Serving {file_name} at {url}')
-        click.echo('Press Ctrl+C to stop')
-        
-        # Watch for file changes
-        last_modified = os.path.getmtime(file_path)
-        while True:
-            time.sleep(1)
-            current_modified = os.path.getmtime(file_path)
-            if current_modified != last_modified:
-                last_modified = current_modified
-                click.echo(f'File changed: {file_name}')
-                # Live reload is handled by the client-side script
-                
-    except KeyboardInterrupt:
-        click.echo('\nStopping server...')
-    finally:
-        # Change back to original directory
-        os.chdir(original_dir)
+    # Define the serve command
+    serve_parser = subparsers.add_parser("serve", help="Start the live preview server")
+    serve_parser.add_argument("file", help="Path to the .mmd file to preview")
+    serve_parser.add_argument("--port", type=int, default=8000, help="Server port")
+    serve_parser.add_argument("--master", action="store_true", help="Use enhanced preview (requires FastAPI)")
 
+    args = parser.parse_args()
+    if args.command == "serve":
+        serve(args.file, args.port, args.master)
+```
 
-@cli.command()
-def list():
-    """
-    List Mermaid diagram files in the current directory.
-    """
-    import glob
-    
-    # Find Mermaid files
-    mermaid_files = glob.glob('*.mmd') + glob.glob('*.mermaid')
-    
-    if not mermaid_files:
-        click.echo('No Mermaid files found in current directory')
-        return
-    
-    click.echo('Mermaid files in current directory:')
-    for file in mermaid_files:
-        size = os.path.getsize(file)
-        modified = time.ctime(os.path.getmtime(file))
-        click.echo(f'- {file} (Size: {size} bytes, Modified: {modified})')
+## Usage Examples
 
+Run in the terminal:
+```bash
+# Basic preview
+mermaid-trace serve trace.mmd --port 8080
 
-if __name__ == '__main__':
-    cli()
+# Master preview (directory browsing, pan/zoom)
+mermaid-trace serve . --master
 ```

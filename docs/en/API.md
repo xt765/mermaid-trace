@@ -16,6 +16,7 @@
   - [AsyncMermaidHandler](#asyncmermaidhandler)
 - [Integrations](#integrations)
   - [MermaidTraceMiddleware (FastAPI)](#mermaidtracemiddleware-fastapi)
+  - [MermaidTraceCallbackHandler (LangChain)](#mermaidtracecallbackhandler-langchain)
 
 ## Core
 
@@ -203,3 +204,25 @@ app.add_middleware(MermaidTraceMiddleware, app_name="MyAPI")
 **Headers Support:**
 - `X-Source`: If sent by the client, sets the source participant name.
 - `X-Trace-ID`: If sent, uses this ID for the trace session; otherwise generates a new UUID.
+
+### `MermaidTraceCallbackHandler` (LangChain)
+
+Callback handler for LangChain that captures LLM calls, chain execution, tool usage, and retriever operations.
+
+```python
+from mermaid_trace.integrations.langchain import MermaidTraceCallbackHandler
+
+handler = MermaidTraceCallbackHandler(host_name="MyAIApp")
+# Pass to chain, agent, or LLM
+chain.invoke({"input": "..."}, config={"callbacks": [handler]})
+```
+
+**Arguments:**
+- `host_name` (str): Name of the participant representing the application. Defaults to "LangChainApp".
+- `logger` (Optional[logging.Logger]): Custom logger to use. If `None`, uses the global MermaidTrace logger.
+
+**Captured Events:**
+- **Chains**: `on_chain_start`, `on_chain_end`, `on_chain_error`.
+- **LLMs/ChatModels**: `on_llm_start`, `on_llm_end`, `on_chat_model_start`, `on_llm_error`.
+- **Tools**: `on_tool_start`, `on_tool_end`, `on_tool_error`.
+- **Retrievers**: `on_retriever_start`, `on_retriever_end`, `on_retriever_error`.

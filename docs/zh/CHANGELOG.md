@@ -5,6 +5,19 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/)（语义化版本控制）。
 
+## [0.6.0] - 2026-02-02
+
+### 新增
+- **增强型 Web 预览 (Master 模式)**: 引入了基于 FastAPI 的全新 Web 预览界面。
+  - **交互式渲染**: 集成 `mermaid.js` 实时渲染，支持通过 `svg-pan-zoom` 进行缩放和平移。
+  - **实时同步**: 采用 Server-Sent Events (SSE) 技术，当 `.mmd` 文件变化时自动刷新图表。
+  - **目录浏览**: 支持在侧边栏直接浏览和切换工作目录下的所有 Mermaid 文件。
+  - **CLI 集成**: 通过 `mermaid-trace serve . --master` 轻松启动。
+
+### 改进
+- **显示布局优化**: 重构了预览界面的 CSS Flex 布局，解决了大型图表在垂直方向显示不全的问题。
+- **文档体系**: 同步更新了 Master 模式的代码注释文档（中英文）。
+
 ## [0.5.3] - 2026-01-27
 
 ### 新增

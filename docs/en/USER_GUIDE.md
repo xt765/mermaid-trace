@@ -7,6 +7,9 @@
 - [Concurrency & Trace IDs](#concurrency--trace-ids)
 - [Auto-Instrumentation & Patching](#auto-instrumentation--patching)
 - [Context Inference](#context-inference)
+- [Framework Integrations](#framework-integrations)
+  - [FastAPI](#fastapi)
+  - [LangChain](#langchain)
 - [Diagram Management](#diagram-management)
   - [Intelligent Collapsing](#intelligent-collapsing)
   - [Exception Stack Traces](#exception-stack-traces)
@@ -93,6 +96,55 @@ MermaidTrace uses Python's `contextvars` to track the "Current Participant".
 5.  If `B` calls `C`, `C` sees the context is "B", so it draws `B ->> C`.
 
 This means you usually only need to set the `source` on the *entry point* (the first function).
+
+## Framework Integrations
+
+### FastAPI
+
+Use `MermaidTraceMiddleware` to automatically trace incoming HTTP requests.
+
+```python
+from fastapi import FastAPI
+from mermaid_trace.integrations import MermaidTraceMiddleware
+
+app = FastAPI()
+app.add_middleware(MermaidTraceMiddleware, app_name="MyAPI")
+```
+
+### LangChain
+
+Use `MermaidTraceCallbackHandler` to visualize the execution flow of LLM chains, agents, and RAG retrieval. This integration is particularly powerful for understanding nested chain calls and external tool interactions.
+
+#### Basic Usage
+
+```python
+from mermaid_trace.integrations.langchain import MermaidTraceCallbackHandler
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+# 1. Initialize the handler
+handler = MermaidTraceCallbackHandler(host_name="MyAIApp")
+
+# 2. Pass the handler to the chain or model
+model = ChatOpenAI()
+prompt = ChatPromptTemplate.from_template("Tell me a joke about {topic}")
+chain = prompt | model
+
+# Execution flow will be recorded in your Mermaid diagram
+chain.invoke({"topic": "bears"}, config={"callbacks": [handler]})
+```
+
+#### RAG & Retrieval Tracing
+
+The handler automatically captures retrieval events, including the query and the resulting document snippets. This helps visualize how the knowledge base is queried and how that data flows into the LLM.
+
+#### Agent & Tool Tracing
+
+When using LangChain Agents, every tool call is captured as a separate interaction in the sequence diagram. This is invaluable for debugging why an agent chose a specific tool or how it processed the tool's output.
+
+#### Participant Stack Management
+
+To ensure accurate sequence diagrams with correct return arrows (`-->>`), the handler maintains an internal stack of participants. This handles deeply nested chains (e.g., a chain calling another chain that calls a tool) correctly without manual configuration.
 
 ## Diagram Management
 

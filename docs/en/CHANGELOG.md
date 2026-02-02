@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-02-02
+
+### Added
+- **Enhanced Web Preview (Master Mode)**: Introduced a brand-new FastAPI-powered Web preview interface.
+  - **Interactive Rendering**: Integrated `mermaid.js` for real-time rendering with `svg-pan-zoom` support for zooming and panning.
+  - **Real-time Sync**: Implemented Server-Sent Events (SSE) to automatically refresh diagrams when `.mmd` files change.
+  - **Directory Browsing**: Built-in sidebar to browse and switch between all Mermaid files in the workspace.
+  - **CLI Integration**: Simply launch with `mermaid-trace serve . --master`.
+
+### Improved
+- **Layout Optimization**: Refactored CSS Flex layout to fix vertical display issues for large diagrams.
+- **Documentation**: Synchronized Master mode documentation and code comments across English and Chinese.
+
 ## [0.5.3] - 2026-01-27
 
 ### Added

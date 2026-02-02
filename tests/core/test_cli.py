@@ -68,7 +68,14 @@ def test_cli_main() -> None:
     ):
         with patch("mermaid_trace.cli.serve") as mock_serve:
             main()
-            mock_serve.assert_called_with("flow.mmd", 8080)
+            mock_serve.assert_called_with("flow.mmd", 8080, False)
+
+
+def test_cli_main_master() -> None:
+    with patch.object(sys, "argv", ["mermaid-trace", "serve", "flow.mmd", "--master"]):
+        with patch("mermaid_trace.cli.serve") as mock_serve:
+            main()
+            mock_serve.assert_called_with("flow.mmd", 8000, True)
 
 
 def test_handler_logic() -> None:

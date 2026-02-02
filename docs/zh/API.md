@@ -16,6 +16,7 @@
   - [AsyncMermaidHandler](#asyncmermaidhandler)
 - [集成 (Integrations)](#集成-integrations)
   - [MermaidTraceMiddleware (FastAPI)](#mermaidtracemiddleware-fastapi)
+  - [MermaidTraceCallbackHandler (LangChain)](#mermaidtracecallbackhandler-langchain)
 
 ## 核心功能 (Core)
 
@@ -203,3 +204,25 @@ app.add_middleware(MermaidTraceMiddleware, app_name="MyAPI")
 **Headers 支持：**
 - `X-Source`: 如果客户端发送此 Header，则设置源参与者名称。
 - `X-Trace-ID`: 如果发送此 Header，则使用此 ID 进行追踪会话；否则生成一个新的 UUID。
+
+### `MermaidTraceCallbackHandler` (LangChain)
+
+用于 LangChain 的回调处理器，捕获 LLM 调用、Chain 执行、工具使用和 Retriever 操作。
+
+```python
+from mermaid_trace.integrations.langchain import MermaidTraceCallbackHandler
+
+handler = MermaidTraceCallbackHandler(host_name="MyAIApp")
+# 传递给 chain, agent 或 LLM
+chain.invoke({"input": "..."}, config={"callbacks": [handler]})
+```
+
+**参数：**
+- `host_name` (str): 代表应用程序的参与者名称。默认为 "LangChainApp"。
+- `logger` (Optional[logging.Logger]): 自定义日志记录器。如果为 `None`，则使用全局 MermaidTrace 日志记录器。
+
+**捕获的事件：**
+- **Chains**: `on_chain_start`, `on_chain_end`, `on_chain_error`。
+- **LLMs/ChatModels**: `on_llm_start`, `on_llm_end`, `on_chat_model_start`, `on_llm_error`。
+- **Tools**: `on_tool_start`, `on_tool_end`, `on_tool_error`。
+- **Retrievers**: `on_retriever_start`, `on_retriever_end`, `on_retriever_error`。

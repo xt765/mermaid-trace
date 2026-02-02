@@ -7,6 +7,9 @@
 - [并发与 Trace ID](#并发与-trace-id)
 - [批量追踪与第三方库](#批量追踪与第三方库)
 - [上下文推断 (Context Inference)](#上下文推断-context-inference)
+- [框架集成](#框架集成)
+  - [FastAPI](#fastapi)
+  - [LangChain](#langchain)
 - [图表管理](#图表管理)
   - [智能折叠](#智能折叠)
   - [异常堆栈追踪](#异常堆栈追踪)
@@ -95,6 +98,55 @@ MermaidTrace 使用 Python 的 `contextvars` 来追踪“当前参与者”。
 5. 如果 `B` 调用 `C`，`C` 看到上下文是 "B"，因此绘制 `B ->> C`。
 
 这意味着通常您只需要在 *入口点*（第一个函数）设置 `source`。
+
+## 框架集成
+
+### FastAPI
+
+使用 `MermaidTraceMiddleware` 自动追踪进入的 HTTP 请求。
+
+```python
+from fastapi import FastAPI
+from mermaid_trace.integrations import MermaidTraceMiddleware
+
+app = FastAPI()
+app.add_middleware(MermaidTraceMiddleware, app_name="我的API")
+```
+
+### LangChain
+
+使用 `MermaidTraceCallbackHandler` 可视化 LLM 链、Agent 插件调用以及 RAG 检索流程。这种集成对于理解嵌套的 Chain 调用和外部工具交互特别有用。
+
+#### 基础用法
+
+```python
+from mermaid_trace.integrations.langchain import MermaidTraceCallbackHandler
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+# 1. 初始化处理器
+handler = MermaidTraceCallbackHandler(host_name="我的AI应用")
+
+# 2. 将处理器传递给 chain 或 model
+model = ChatOpenAI()
+prompt = ChatPromptTemplate.from_template("讲一个关于 {topic} 的笑话")
+chain = prompt | model
+
+# 执行流程将自动记录在 Mermaid 图表中
+chain.invoke({"topic": "熊"}, config={"callbacks": [handler]})
+```
+
+#### RAG 与检索追踪
+
+处理器会自动捕获检索事件，包括查询语句和生成的文档片段。这有助于可视化知识库是如何被查询的，以及这些数据是如何流入 LLM 的。
+
+#### Agent 与工具追踪
+
+在使用 LangChain Agent 时，每一次工具调用都会在时序图中被捕获为独立的交互。这对于调试 Agent 为什么选择特定工具以及它如何处理工具输出非常有价值。
+
+#### 参与者栈管理 (Participant Stack)
+
+为了确保生成的时序图具有正确的返回箭头 (`-->>`)，处理器维护了一个内部参与者栈。这可以正确处理深层嵌套的 Chain（例如：一个 Chain 调用另一个 Chain，后者又调用了一个工具），而无需手动配置。
 
 ## 图表管理
 

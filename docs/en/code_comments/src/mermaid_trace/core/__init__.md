@@ -90,7 +90,7 @@ trace = trace_interaction
 
 
 # Package version
-__version__ = "0.1.0"
+__version__ = "0.6.0"
 
 
 # Package metadata

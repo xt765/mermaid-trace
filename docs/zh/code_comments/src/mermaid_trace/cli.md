@@ -5,7 +5,8 @@
 ## 核心功能
 
 - **本地预览服务器**: 启动一个微型 HTTP 服务器，将 Mermaid 文件渲染为网页。
-- **实时预览与自动刷新**: 使用浏览器端轮询（Polling）机制，当检测到文件变动时自动刷新页面。
+- **Master 增强模式**: 集成 FastAPI 和 SSE 技术，提供支持文件列表浏览、缩放平移和即时更新的高级预览界面。
+- **实时预览与自动刷新**: 使用浏览器端轮询（基础模式）或 SSE（Master 模式），当检测到文件变动时自动刷新页面。
 - **文件监控**: 集成 `watchdog` 库（可选）进行高效的文件系统监控。
 - **内嵌渲染引擎**: 使用 Mermaid.js CDN 在客户端渲染图表，无需安装复杂的图形库。
 
@@ -51,15 +52,21 @@ try:
 except ImportError:
     HAS_WATCHDOG = False
 
-def serve(filename: str, port: int = 8000) -> None:
+def serve(filename: str, port: int = 8000, master: bool = False) -> None:
     """
     启动本地服务器。
-    1. 验证文件路径。
-    2. 设置 Watchdog 监控（可选）。
-    3. 创建 HTTP 处理程序。
-    4. 自动打开浏览器。
-    5. 进入服务循环。
+    1. 如果启用 master 模式，则调用 server.run_server。
+    2. 验证文件路径。
+    3. 设置 Watchdog 监控（可选）。
+    4. 创建 HTTP 处理程序。
+    5. 自动打开浏览器。
+    6. 进入服务循环。
     """
+    if master:
+        # 尝试启动增强型服务器
+        ...
+        return
+
     path = Path(filename)
     if not path.exists():
         print(f"错误: 找不到文件 '{filename}'")
@@ -96,10 +103,11 @@ def main() -> None:
     serve_parser = subparsers.add_parser("serve", help="启动实时预览服务器")
     serve_parser.add_argument("file", help="要预览的 .mmd 文件路径")
     serve_parser.add_argument("--port", type=int, default=8000, help="服务器端口")
+    serve_parser.add_argument("--master", action="store_true", help="使用增强型预览界面 (需要 FastAPI)")
 
     args = parser.parse_args()
     if args.command == "serve":
-        serve(args.file, args.port)
+        serve(args.file, args.port, args.master)
 ```
 
 ## 使用示例
