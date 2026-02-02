@@ -36,6 +36,7 @@ dependencies = [
 [project.optional-dependencies]
 fastapi = [
     "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
 ]
 langchain = [
     "langchain-core>=0.1.0",
@@ -109,7 +110,11 @@ target-version = "py310"
 
 [tool.mypy]
 strict = true
-files = ["src/mermaid_trace"]
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = "uvicorn.*"
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "tests.*"
