@@ -5,7 +5,7 @@ This module provides a LangChain Callback Handler that allows you to automatical
 generate Mermaid sequence diagrams for your LangChain chains, LLM calls, and tool usage.
 """
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Sequence, TYPE_CHECKING
 import uuid
 
 from ..core.events import FlowEvent
@@ -15,30 +15,35 @@ from ..core.decorators import get_flow_logger
 if TYPE_CHECKING:
     from langchain_core.callbacks import BaseCallbackHandler
     from langchain_core.outputs import LLMResult
+    from langchain_core.agents import AgentAction, AgentFinish
+    from langchain_core.documents import Document
 else:
     try:
         from langchain_core.callbacks import BaseCallbackHandler
         from langchain_core.outputs import LLMResult
+        from langchain_core.agents import AgentAction, AgentFinish
+        from langchain_core.documents import Document
     except ImportError:
         BaseCallbackHandler = object
         LLMResult = Any
+        AgentAction = Any
+        AgentFinish = Any
+        Document = Any
 
 
 class MermaidTraceCallbackHandler(BaseCallbackHandler):
-    """
-    LangChain Callback Handler that records execution flow as Mermaid sequence diagrams.
+    """LangChain Callback Handler that records execution flow as Mermaid sequence diagrams.
 
-    This handler intercepts LangChain events (Chain, LLM, Tool) and logs them as
+    This handler intercepts LangChain events (Chain, LLM, Tool, Agent) and logs them as
     FlowEvents, which are then processed by MermaidTrace to generate diagrams.
     """
 
     def __init__(self, host_name: str = "LangChain"):
-        """
-        Initialize the callback handler.
+        """Initialize the callback handler.
 
         Args:
-            host_name (str): The name of the host participant in the diagram.
-                             Defaults to "LangChain".
+            host_name: The name of the host participant in the diagram.
+                Defaults to "LangChain".
         """
         if BaseCallbackHandler is object:
             raise ImportError(
@@ -50,6 +55,7 @@ class MermaidTraceCallbackHandler(BaseCallbackHandler):
         self._participant_stack: List[str] = []
 
     def _get_current_source(self) -> str:
+        """Get the current source participant from stack or context."""
         if self._participant_stack:
             return self._participant_stack[-1]
         return str(LogContext.get("current_participant", self.host_name))
@@ -58,6 +64,11 @@ class MermaidTraceCallbackHandler(BaseCallbackHandler):
         self,
         serialized: Optional[Dict[str, Any]],
         inputs: Dict[str, Any],
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         """Run when chain starts running."""
@@ -81,7 +92,14 @@ class MermaidTraceCallbackHandler(BaseCallbackHandler):
         )
         self._participant_stack.append(target)
 
-    def on_chain_end(self, outputs: Dict[str, Any], **kwargs: Any) -> None:
+    def on_chain_end(
+        self,
+        outputs: Dict[str, Any],
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
+        **kwargs: Any,
+    ) -> None:
         """Run when chain ends running."""
         if not self._participant_stack:
             return
@@ -103,7 +121,15 @@ class MermaidTraceCallbackHandler(BaseCallbackHandler):
         )
 
     def on_llm_start(
-        self, serialized: Optional[Dict[str, Any]], prompts: List[str], **kwargs: Any
+        self,
+        serialized: Optional[Dict[str, Any]],
+        prompts: List[str],
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> None:
         """Run when LLM starts running."""
         target = (serialized.get("name") if serialized else None) or "LLM"
@@ -126,6 +152,11 @@ class MermaidTraceCallbackHandler(BaseCallbackHandler):
         self,
         serialized: Optional[Dict[str, Any]],
         messages: List[List[Any]],
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         """Run when Chat Model starts running."""
@@ -145,7 +176,14 @@ class MermaidTraceCallbackHandler(BaseCallbackHandler):
         )
         self._participant_stack.append(target)
 
-    def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
+    def on_llm_end(
+        self,
+        response: LLMResult,
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
+        **kwargs: Any,
+    ) -> None:
         """Run when LLM ends running."""
         if not self._participant_stack:
             return
@@ -166,7 +204,14 @@ class MermaidTraceCallbackHandler(BaseCallbackHandler):
             f"{source} -> {target}: {event.action}", extra={"flow_event": event}
         )
 
-    def on_llm_error(self, error: BaseException, **kwargs: Any) -> None:
+    def on_llm_error(
+        self,
+        error: BaseException,
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
+        **kwargs: Any,
+    ) -> None:
         """Run when LLM errors."""
         if not self._participant_stack:
             return
@@ -190,6 +235,11 @@ class MermaidTraceCallbackHandler(BaseCallbackHandler):
         self,
         serialized: Optional[Dict[str, Any]],
         query: str,
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         """Run when Retriever starts running."""
@@ -209,7 +259,14 @@ class MermaidTraceCallbackHandler(BaseCallbackHandler):
         )
         self._participant_stack.append(target)
 
-    def on_retriever_end(self, documents: List[Any], **kwargs: Any) -> Any:  # type: ignore[override]
+    def on_retriever_end(
+        self,
+        documents: Sequence[Document],
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
+        **kwargs: Any,
+    ) -> Any:
         """Run when Retriever ends running."""
         if not self._participant_stack:
             return
@@ -231,7 +288,15 @@ class MermaidTraceCallbackHandler(BaseCallbackHandler):
         )
 
     def on_tool_start(
-        self, serialized: Optional[Dict[str, Any]], input_str: str, **kwargs: Any
+        self,
+        serialized: Optional[Dict[str, Any]],
+        input_str: str,
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> None:
         """Run when tool starts running."""
         target = (serialized.get("name") if serialized else None) or "Tool"
@@ -250,7 +315,14 @@ class MermaidTraceCallbackHandler(BaseCallbackHandler):
         )
         self._participant_stack.append(target)
 
-    def on_tool_end(self, output: Any, **kwargs: Any) -> None:
+    def on_tool_end(
+        self,
+        output: Any,
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
+        **kwargs: Any,
+    ) -> None:
         """Run when tool ends running."""
         if not self._participant_stack:
             return
@@ -271,7 +343,63 @@ class MermaidTraceCallbackHandler(BaseCallbackHandler):
             f"{target} -> {source}: {event.action}", extra={"flow_event": event}
         )
 
-    def on_chain_error(self, error: BaseException, **kwargs: Any) -> None:
+    def on_agent_action(
+        self,
+        action: AgentAction,
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Run on agent action."""
+        target = action.tool
+        source = self._get_current_source()
+
+        event = FlowEvent(
+            source=source,
+            target=target,
+            action="Agent Action",
+            message=f"Decided to use: {target}",
+            trace_id=LogContext.get("trace_id", str(uuid.uuid4())),
+            params=str(action.tool_input),
+        )
+        self.logger.info(
+            f"{source} -> {target}: {event.action}", extra={"flow_event": event}
+        )
+
+    def on_agent_finish(
+        self,
+        finish: AgentFinish,
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Run on agent finish."""
+        source = self._get_current_source()
+        target = "User"  # Usually agents finish by returning to the user
+
+        event = FlowEvent(
+            source=source,
+            target=target,
+            action="Agent Finish",
+            message="Final Answer Ready",
+            trace_id=LogContext.get("trace_id", str(uuid.uuid4())),
+            result=str(finish.return_values),
+            is_return=True,
+        )
+        self.logger.info(
+            f"{source} -> {target}: {event.action}", extra={"flow_event": event}
+        )
+
+    def on_chain_error(
+        self,
+        error: BaseException,
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
+        **kwargs: Any,
+    ) -> None:
         """Run when chain errors."""
         if not self._participant_stack:
             return
@@ -291,7 +419,14 @@ class MermaidTraceCallbackHandler(BaseCallbackHandler):
             f"{target} -> {source}: {event.action}", extra={"flow_event": event}
         )
 
-    def on_tool_error(self, error: BaseException, **kwargs: Any) -> None:
+    def on_tool_error(
+        self,
+        error: BaseException,
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
+        **kwargs: Any,
+    ) -> None:
         """Run when tool errors."""
         if not self._participant_stack:
             return

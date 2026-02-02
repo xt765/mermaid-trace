@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-02-02
+
+### Fixed
+- **Mypy Type Safety**: Fixed method signature for `MermaidTraceCallbackHandler.on_retriever_end` to align with `Sequence[Document]` from LangChain core, resolving Liskov Substitution Principle violations.
+- **Example Code**: Improved type casting in the LangChain integration example for better compatibility in environments without optional dependencies.
+
+### Improved
+- **Documentation Sync**: Fully updated source code comments and documentation to reflect the latest API changes.
+
 ## [0.6.0] - 2026-02-02
 
 ### Added

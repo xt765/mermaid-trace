@@ -5,6 +5,15 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/)（语义化版本控制）。
 
+## [0.6.1] - 2026-02-02
+
+### 修复
+- **Mypy 类型安全**: 修复了 `MermaidTraceCallbackHandler.on_retriever_end` 的方法签名，使其与 LangChain 核心库的 `Sequence[Document]` 类型对齐，消除了 Liskov 替换原则违规。
+- **示例代码**: 优化了 LangChain 集成示例中的类型转换，确保在无可选依赖环境下的类型检查通过性。
+
+### 改进
+- **文档同步**: 全面同步更新了中英文代码注释文档，确保反映最新的 API 变更。
+
 ## [0.6.0] - 2026-02-02
 
 ### 新增

@@ -43,23 +43,32 @@ MermaidTrace 的 LangChain 集成模块。
 
 import logging
 import uuid
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Sequence, TYPE_CHECKING
 
-from ..core.context import LogContext
 from ..core.events import FlowEvent
+from ..core.context import LogContext
+from ..core.decorators import get_flow_logger
 
 # ----------------------------------------------------------------------
 # 条件导入：支持可选的 LangChain 依赖
 # ----------------------------------------------------------------------
-try:
+if TYPE_CHECKING:
     from langchain_core.callbacks import BaseCallbackHandler
     from langchain_core.outputs import LLMResult
-except ImportError:
-    # 如果未安装，定义一个占位类防止继承报错
-    class BaseCallbackHandler:  # type: ignore
-        pass
-    class LLMResult:  # type: ignore
-        pass
+    from langchain_core.agents import AgentAction, AgentFinish
+    from langchain_core.documents import Document
+else:
+    try:
+        from langchain_core.callbacks import BaseCallbackHandler
+        from langchain_core.outputs import LLMResult
+        from langchain_core.agents import AgentAction, AgentFinish
+        from langchain_core.documents import Document
+    except ImportError:
+        BaseCallbackHandler = object
+        LLMResult = Any
+        AgentAction = Any
+        AgentFinish = Any
+        Document = Any
 
 class MermaidTraceCallbackHandler(BaseCallbackHandler):
     """
@@ -238,9 +247,12 @@ class MermaidTraceCallbackHandler(BaseCallbackHandler):
 
     def on_retriever_end(
         self,
-        documents: List[Any],
+        documents: Sequence[Document],
+        *,
+        run_id: Any = None,
+        parent_run_id: Any = None,
         **kwargs: Any,
-    ) -> None:
+    ) -> Any:
         """当 Retriever 执行结束时触发"""
         if not self._participant_stack:
             return

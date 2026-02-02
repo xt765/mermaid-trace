@@ -40,7 +40,7 @@ def demo_with_mock_langchain() -> None:
         serialized={"name": "VectorStoreRetriever"}, query="What is MermaidTrace?"
     )
     handler.on_retriever_end(
-        documents=[{"page_content": "MermaidTrace is a tool..."}] * 2
+        documents=cast(Any, [{"page_content": "MermaidTrace is a tool..."}] * 2)
     )
 
     # 2. Chain execution

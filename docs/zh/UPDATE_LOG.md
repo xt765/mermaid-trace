@@ -1,8 +1,19 @@
 # 更新日志 (UPDATE_LOG)
 
-## [2026-02-02] - 增强型 Web 预览 (Master 模式) 与 UI 优化
+## [2026-02-02] - QA 强化与文档精化 (Refinement)
 
-### 核心功能更新：Master 模式
+### 代码质量强化
+- **Mypy 类型安全修复**: 
+    - 修复了 `MermaidTraceCallbackHandler.on_retriever_end` 的方法签名，将其与 LangChain 核心库的 `Sequence[Document]` 类型对齐，解决了 Liskov 替换原则违规错误。
+    - 在 `examples/09_langchain_integration.py` 中引入 `cast(Any, ...)`，确保在无 `langchain-core` 环境下的示例代码也能通过类型检查。
+- **自动化检查**: 再次运行全量 Ruff 格式化与 Mypy 静态分析，确保代码库 100% 符合规范。
+- **全量测试**: 执行 122 个测试用例，全部通过，整体覆盖率稳定在 90% 以上。
+
+### 文档同步精化
+- **代码注释同步**: 同步更新了 `docs/zh/code_comments/` 和 `docs/en/code_comments/` 下关于 LangChain 集成的源代码注释文档，确保文档中的示例代码与最新实现（包括 `TYPE_CHECKING` 块和方法签名）完全一致。
+- **中英文对齐**: 确保所有新增的类型定义和逻辑说明在中英文文档中保持同步。
+
+## [2026-02-02] - 增强型 Web 预览 (Master 模式) 与 UI 优化
 - **基于 FastAPI 的增强服务器**: 实现了 `run_server` 函数，利用 FastAPI 搭建高性能 Web 预览后端。
 - **SSE 实时通信**: 引入 Server-Sent Events (SSE) 机制，实现 `.mmd` 文件更新时的前端零延迟自动刷新。
 - **交互式渲染引擎**: 
