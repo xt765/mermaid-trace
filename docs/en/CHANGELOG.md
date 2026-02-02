@@ -18,6 +18,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Layout Optimization**: Refactored CSS Flex layout to fix vertical display issues for large diagrams.
 - **Documentation**: Synchronized Master mode documentation and code comments across English and Chinese.
 
+## [0.5.4] - 2026-02-02
+
+### Added
+- **LangChain Integration**: Full support for tracing LangChain applications.
+  - **Callback Handler**: Implemented `MermaidTraceCallbackHandler` to capture lifecycle events for Chains, LLMs, ChatModels, Tools, and Retrievers.
+  - **Participant Stack**: Introduced an internal participant stack to correctly track nested calls and return arrows (`-->>`) in complex RAG and Agent workflows.
+  - **Robust Integration**: Used conditional imports to ensure `langchain-core` remains an optional dependency.
+
+### Fixed
+- **Empty File Issue**: Resolved a critical bug where `.mmd` files remained empty when using LangChain integration.
+- **Protocol Alignment**: Fixed missing `flow_event` extra parameters in the callback handler to ensure correct event capturing by `MermaidFileHandler`.
+
 ## [0.5.3] - 2026-01-27
 
 ### Added
