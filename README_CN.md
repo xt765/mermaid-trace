@@ -1,17 +1,21 @@
-# MermaidTrace: 让你的 Python 代码逻辑“看”得见
+<h1 align="center">MermaidTrace: 让你的 Python 代码逻辑"看"得见</h1>
 
-**别再深陷于晦涩的日志流了。只需一行代码，自动将复杂的执行逻辑转化为清晰的 Mermaid 时序图。**
+<p align="center"><strong>别再深陷于晦涩的日志流了。只需一行代码，自动将复杂的执行逻辑转化为清晰的 Mermaid 时序图。</strong></p>
 
-🌐 **语言**: [English](README.md) | [中文](README_CN.md)
+<p align="center">🌐 <strong>语言</strong>: <a href="README.md">English</a> | <a href="README_CN.md">中文</a></p>
 
-[![CSDN Blog](https://img.shields.io/badge/CSDN-玄同765-orange?style=flat-square&logo=csdn)](https://blog.csdn.net/Yunyi_Chi)
-[![GitHub](https://img.shields.io/badge/GitHub-mermaid--trace-black?style=flat-square&logo=github)](https://github.com/xt765/mermaid-trace)
-[![Gitee](https://img.shields.io/badge/Gitee-mermaid--trace-red?style=flat-square&logo=gitee)](https://gitee.com/xt765/mermaid-trace)
-[![PyPI version](https://img.shields.io/pypi/v/mermaid-trace.svg?style=flat-square&color=blue)](https://pypi.org/project/mermaid-trace/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/mermaid-trace.svg?style=flat-square&color=blue)](https://pypi.org/project/mermaid-trace/)
-[![License](https://img.shields.io/github/license/xt765/mermaid-trace?style=flat-square)](LICENSE)
-[![CI Status](https://img.shields.io/github/actions/workflow/status/xt765/mermaid-trace/ci.yml?style=flat-square&label=CI)](https://github.com/xt765/mermaid-trace/actions/workflows/ci.yml)
-[![Codecov](https://img.shields.io/codecov/c/github/xt765/mermaid-trace?style=flat-square&logo=codecov)](https://codecov.io/gh/xt765/mermaid-trace)
+<p align="center">
+  <a href="https://blog.csdn.net/Yunyi_Chi"><img src="https://img.shields.io/badge/CSDN-玄同765-orange?style=flat-square&logo=csdn" alt="CSDN Blog"></a>
+  <a href="https://github.com/xt765/mermaid-trace"><img src="https://img.shields.io/badge/GitHub-mermaid--trace-black?style=flat-square&logo=github" alt="GitHub"></a>
+  <a href="https://gitee.com/xt765/mermaid-trace"><img src="https://img.shields.io/badge/Gitee-mermaid--trace-red?style=flat-square&logo=gitee" alt="Gitee"></a>
+</p>
+<p align="center">
+  <a href="https://pypi.org/project/mermaid-trace/"><img src="https://img.shields.io/pypi/v/mermaid-trace.svg?style=flat-square&color=blue" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/mermaid-trace/"><img src="https://img.shields.io/pypi/pyversions/mermaid-trace.svg?style=flat-square&color=blue" alt="Python Versions"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/xt765/mermaid-trace?style=flat-square" alt="License"></a>
+  <a href="https://github.com/xt765/mermaid-trace/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/xt765/mermaid-trace/ci.yml?style=flat-square&label=CI" alt="CI Status"></a>
+  <a href="https://codecov.io/gh/xt765/mermaid-trace"><img src="https://img.shields.io/codecov/c/github/xt765/mermaid-trace?style=flat-square&logo=codecov" alt="Codecov"></a>
+</p>
 
 ---
 
