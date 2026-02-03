@@ -1,6 +1,6 @@
 <h1 align="center">MermaidTrace: Visualize Your Python Code Logic</h1>
 
-<p align="center"><strong>Stop drowning in cryptic logs. One line of code to transform complex execution logic into clear Mermaid sequence diagrams.</strong></p>
+<strong>Stop drowning in cryptic logs. One line of code to transform complex execution logic into clear Mermaid sequence diagrams.</strong>
 
 <p align="center">🌐 <strong>Language</strong>: <a href="README.md">English</a> | <a href="README_CN.md">中文</a></p>
 
