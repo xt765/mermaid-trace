@@ -1,5 +1,7 @@
 <h1 align="center">MermaidTrace: 让你的 Python 代码逻辑"看"得见</h1>
-
+<p align="center">
+  <img src="docs/images/logo.png" alt="MermaidTrace Logo" width="600">
+</p>
 <p align="center"><strong>别再深陷于晦涩的日志流了。只需一行代码，自动将复杂的执行逻辑转化为清晰的 Mermaid 时序图。</strong></p>
 
 <p align="center">🌐 <strong>语言</strong>: <a href="README.md">English</a> | <a href="README_CN.md">中文</a></p>
