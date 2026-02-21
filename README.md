@@ -1,4 +1,7 @@
 <h1 align="center">MermaidTrace: Visualize Your Python Code Logic</h1>
+<p align="center">
+  <img src="docs/images/logo.png" alt="MermaidTrace Logo" width="600">
+</p>
 
 <p align="center"><strong>Stop drowning in cryptic logs. One line of code to transform complex execution logic into clear Mermaid sequence diagrams.</strong></p>
 
