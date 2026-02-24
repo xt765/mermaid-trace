@@ -44,7 +44,7 @@ def _create_handler(filename: str, path: Path):
 ## 源码分析与注释
 
 ```python
-# 尝试导入 watchdog 以实现高效监控
+# Try to import watchdog for efficient monitoring
 try:
     from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
@@ -52,62 +52,95 @@ try:
 except ImportError:
     HAS_WATCHDOG = False
 
-def serve(filename: str, port: int = 8000, master: bool = False) -> None:
+def serve(target: str, port: int = 8000) -> None:
     """
-    启动本地服务器。
-    1. 如果启用 master 模式，则调用 server.run_server。
-    2. 验证文件路径。
-    3. 设置 Watchdog 监控（可选）。
-    4. 创建 HTTP 处理程序。
-    5. 自动打开浏览器。
-    6. 进入服务循环。
-    """
-    if master:
-        # 尝试启动增强型服务器
-        ...
-        return
+    Start the local HTTP server to preview Mermaid diagrams.
 
-    path = Path(filename)
-    if not path.exists():
-        print(f"错误: 找不到文件 '{filename}'")
+    This function delegates the actual server logic to `mermaid_trace.server.run_server`.
+    If the required dependencies (fastapi, uvicorn) are missing, it provides instructions.
+
+    Args:
+        target (str): The path to the .mmd file or directory to serve.
+        port (int): The port number to bind the server to (default: 8000).
+    """
+    try:
+        # Try to import the run function and dependency check flag from the server module
+        # Delayed import is used to avoid loading heavy dependencies when server functionality is not needed
+        from .server import run_server, HAS_SERVER_DEPS
+
+        # Check if the dependencies required for the server (fastapi, uvicorn, etc.) are installed
+        if HAS_SERVER_DEPS:
+            # Dependencies are present, start the server
+            run_server(target, port)
+        else:
+            # Dependencies are missing, print error message and prompt user to install
+            # Note: Although pip is used in the prompt, tools like uv are recommended in modern Python development
+            print("Error: The preview server requires additional dependencies.")
+            print("Please install them with:")
+            print("    pip install mermaid-trace[server]")
+            print("Or manually:")
+            print("    pip install fastapi uvicorn")
+            sys.exit(1)  # Exit with non-zero status code indicating an error
+
+    except ImportError:
+        # Catch cases where importing the server module itself fails (e.g., corrupted files or wrong paths)
+        print("Error: Could not import server module.")
         sys.exit(1)
 
-    # 启动 Watchdog (仅用于终端提示)
-    if HAS_WATCHDOG:
-        observer = Observer()
-        observer.schedule(FileChangeHandler(), path=str(path.parent), recursive=False)
-        observer.start()
-
-    # 创建处理器并启动线程化服务器
-    # ThreadingTCPServer 允许同时处理多个请求（如轮询和页面加载）
-    HandlerClass = _create_handler(filename, path)
-    with socketserver.ThreadingTCPServer(("", port), HandlerClass) as httpd:
-        webbrowser.open(f"http://localhost:{port}")
-        try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            # 捕获 Ctrl+C 实现优雅退出
-            if observer:
-                observer.stop()
-            httpd.server_close()
 
 def main() -> None:
     """
-    CLI 命令行解析。
-    使用 argparse 定义 'serve' 命令及其参数。
+    Main entry point for the CLI application.
+    Responsible for parsing command-line arguments and calling the corresponding handler function based on the subcommand.
     """
-    parser = argparse.ArgumentParser(description="MermaidTrace CLI - 在浏览器中预览 Mermaid 图表")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-    
-    # 定义 serve 命令
-    serve_parser = subparsers.add_parser("serve", help="启动实时预览服务器")
-    serve_parser.add_argument("file", help="要预览的 .mmd 文件路径")
-    serve_parser.add_argument("--port", type=int, default=8000, help="服务器端口")
-    serve_parser.add_argument("--master", action="store_true", help="使用增强型预览界面 (需要 FastAPI)")
+    # Create top-level argument parser
+    parser = argparse.ArgumentParser(
+        description="MermaidTrace CLI - Preview Mermaid diagrams in browser"
+    )
 
+    # Create subcommand parsers to distinguish different operations (like 'serve')
+    # dest="command" means the subcommand name will be stored in the args.command attribute
+    subparsers = parser.add_subparsers(
+        dest="command", required=True, help="Available commands"
+    )
+
+    # --- 'serve' command definition ---
+    # Add 'serve' subcommand: used to start the real-time preview server
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Serve a Mermaid file or directory in the browser with live reload",
+    )
+    
+    # Add 'path' positional argument: specify the file or folder to preview
+    serve_parser.add_argument(
+        "path", help="Path to the .mmd file or directory to serve"
+    )
+    
+    # Add '--port' optional argument: specify the server listening port
+    serve_parser.add_argument(
+        "--port", type=int, default=8000, help="Port to bind to (default: 8000)"
+    )
+    
+    # Add '--master' deprecated argument
+    # Kept for backward compatibility with old version scripts, but ignored in code
+    serve_parser.add_argument(
+        "--master",
+        action="store_true",
+        help="Deprecated: Master mode is now the default.",
+    )
+
+    # Parse command-line arguments
     args = parser.parse_args()
+
+    # Dispatch to the corresponding handler function based on the parsed subcommand
     if args.command == "serve":
-        serve(args.file, args.port, args.master)
+        # If it is the 'serve' command, call the serve function
+        serve(args.path, args.port)
+
+
+if __name__ == "__main__":
+    # Execute main function when script is run directly
+    main()
 ```
 
 ## 使用示例

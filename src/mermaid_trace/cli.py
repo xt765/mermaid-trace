@@ -1,104 +1,107 @@
 """
-命令行接口 (CLI) 模块 - MermaidTrace.
+Command Line Interface (CLI) Module - MermaidTrace.
 
-本模块作为 MermaidTrace 命令行工具的入口点。
-它提供了通过本地 HTTP 服务器预览 Mermaid 图表文件 (.mmd) 的功能，
-底层利用了 `server.py` 中基于 FastAPI 的健壮实现。
+This module serves as the entry point for the MermaidTrace command-line tool.
+It facilitates the preview of Mermaid diagram files (.mmd) via a local HTTP server,
+leveraging the robust FastAPI-based implementation in `server.py`.
 
-使用方法:
-    直接运行此模块或通过 `mermaid-trace` 命令（如果已安装）调用。
-    示例: `mermaid-trace serve diagram.mmd --port 8080`
+Usage:
+    Run this module directly or via the `mermaid-trace` command if installed.
+    Example: `mermaid-trace serve diagram.mmd --port 8080`
 """
 
-import argparse  # 用于解析命令行参数的标准库
-import sys       # 用于访问系统特定的参数和函数，如退出程序
+import argparse  # Standard library for parsing command-line arguments
+import sys       # Used for system-specific parameters and functions (e.g., exit)
 
 def serve(target: str, port: int = 8000) -> None:
     """
-    启动本地 HTTP 服务器以预览 Mermaid 图表。
+    Starts a local HTTP server to preview Mermaid diagrams.
 
-    此函数将实际的服务器逻辑委托给 `mermaid_trace.server.run_server`。
-    如果缺少必要的依赖项（如 fastapi, uvicorn），它会提供安装说明。
+    This function delegates the actual server logic to `mermaid_trace.server.run_server`.
+    It handles dependency checking and provides installation instructions if
+    required packages (fastapi, uvicorn) are missing.
 
-    参数:
-        target (str): 要服务的 .mmd 文件或目录的路径。
-        port (int): 服务器绑定的端口号（默认值: 8000）。
+    Args:
+        target (str): Path to the .mmd file or directory to serve.
+        port (int): The port number to bind the server to (default: 8000).
     """
     try:
-        # 尝试从 server 模块导入运行函数和依赖检查标志
-        # 延迟导入是为了避免在不需要服务器功能时加载沉重的依赖
+        # Attempt to import the run function and dependency flag from the server module.
+        # Delayed import avoids loading heavy dependencies when server functionality is not needed.
         from .server import run_server, HAS_SERVER_DEPS
 
-        # 检查是否安装了服务器所需的依赖（fastapi, uvicorn 等）
+        # Check if server dependencies (fastapi, uvicorn, etc.) are installed
         if HAS_SERVER_DEPS:
-            # 依赖齐全，启动服务器
+            # Dependencies are present; launch the server.
             run_server(target, port)
         else:
-            # 依赖缺失，打印错误信息并提示用户安装
-            # 注意：虽然提示中使用 pip，但在现代 Python 开发中推荐使用 uv 等工具
+            # Dependencies are missing; print error and installation instructions.
+            # Note: While pip is suggested, modern Python workflows might use tools like uv.
             print("Error: The preview server requires additional dependencies.")
             print("Please install them with:")
             print("    pip install mermaid-trace[server]")
             print("Or manually:")
             print("    pip install fastapi uvicorn")
-            sys.exit(1)  # 非零状态码退出，表示发生错误
+            sys.exit(1)  # Exit with a non-zero status code indicating error
 
     except ImportError:
-        # 捕获导入 server 模块本身失败的情况（例如文件损坏或路径错误）
+        # Catch cases where importing the server module itself fails (e.g., corrupted files)
         print("Error: Could not import server module.")
         sys.exit(1)
 
 
 def main() -> None:
     """
-    CLI 应用程序的主入口点。
-    负责解析命令行参数并根据子命令调用相应的功能函数。
+    Main entry point for the CLI application.
+    
+    Responsible for parsing command-line arguments and invoking the appropriate
+    function based on the subcommand provided.
     """
-    # 创建顶级参数解析器
+    # Create the top-level argument parser
     parser = argparse.ArgumentParser(
-        description="MermaidTrace CLI - 在浏览器中预览 Mermaid 图表"
+        description="MermaidTrace CLI - Preview Mermaid diagrams in the browser"
     )
 
-    # 创建子命令解析器，用于区分不同的操作（如 'serve'）
-    # dest="command" 表示将子命令的名称存储在 args.command 属性中
+    # Create sub-parsers to handle different commands (e.g., 'serve')
+    # dest="command" stores the chosen subcommand name in args.command
     subparsers = parser.add_subparsers(
-        dest="command", required=True, help="可用命令"
+        dest="command", required=True, help="Available commands"
     )
 
-    # --- 'serve' 命令定义 ---
-    # 添加 'serve' 子命令：用于启动实时预览服务器
+    # --- 'serve' Command Definition ---
+    # Add 'serve' subcommand: starts the live preview server
     serve_parser = subparsers.add_parser(
         "serve",
-        help="在浏览器中服务 Mermaid 文件或目录，支持实时重载",
+        help="Serve a Mermaid file or directory in the browser with live reload",
     )
     
-    # 添加 'path' 位置参数：指定要预览的文件或文件夹
+    # Add 'path' positional argument: the file or folder to preview
     serve_parser.add_argument(
-        "path", help="要服务的 .mmd 文件或目录的路径"
+        "path", help="Path to the .mmd file or directory to serve"
     )
     
-    # 添加 '--port' 可选参数：指定服务器监听端口
+    # Add '--port' optional argument: server listening port
     serve_parser.add_argument(
-        "--port", type=int, default=8000, help="绑定的端口 (默认: 8000)"
+        "--port", type=int, default=8000, help="Port to bind to (default: 8000)"
     )
     
-    # 添加 '--master' 废弃参数
-    # 保留此参数是为了向后兼容旧版本脚本，但在代码中会被忽略
+    # Add '--master' deprecated argument
+    # Kept for backward compatibility with older scripts, but ignored in code
     serve_parser.add_argument(
         "--master",
         action="store_true",
-        help="已废弃: Master 模式现在是默认模式。",
+        help="Deprecated: Master mode is now the default.",
     )
 
-    # 解析命令行参数
+    # Parse the command-line arguments
     args = parser.parse_args()
 
-    # 根据解析出的子命令分发到对应的处理函数
+    # Dispatch to the corresponding function based on the subcommand
     if args.command == "serve":
-        # 如果是 'serve' 命令，调用 serve 函数
+        # If 'serve' command is used, call the serve function
         serve(args.path, args.port)
 
 
 if __name__ == "__main__":
-    # 当脚本被直接运行时执行 main 函数
+    # Execute main function when script is run directly
     main()

@@ -1,8 +1,8 @@
 """
-MermaidTrace 增强型 Web 服务器。
+MermaidTrace Enhanced Web Server.
 
-本模块提供了一个基于 FastAPI 和 Server-Sent Events (SSE) 的健壮实时预览服务器。
-它负责监控 .mmd 文件，并将更新即时推送到浏览器端进行渲染。
+This module provides a robust, real-time preview server based on FastAPI and Server-Sent Events (SSE).
+It monitors .mmd files for changes and instantly pushes updates to the browser for rendering.
 """
 
 import asyncio
@@ -11,8 +11,9 @@ import json
 from pathlib import Path
 from typing import AsyncGenerator, Set, Any
 
-# 尝试导入服务器相关依赖 (FastAPI, Uvicorn)
-# 使用 try-except 块是为了让 mermaid-trace 在未安装 [server] 额外依赖的情况下也能被导入（虽然不能运行 server 功能）
+# Attempt to import server-related dependencies (FastAPI, Uvicorn).
+# The try-except block ensures mermaid-trace can still be imported even if the 
+# [server] extra dependencies are not installed (though server features won't work).
 try:
     from fastapi import FastAPI, Request, HTTPException
     from fastapi.responses import HTMLResponse, StreamingResponse
@@ -22,8 +23,9 @@ try:
 except ImportError:
     HAS_SERVER_DEPS = False
 
-    # 模拟依赖项，允许在未安装依赖时也能导入模块
-    # 这是一种优雅降级策略，避免因缺少可选依赖导致整个库不可用
+    # Mock dependencies to allow module import without installation.
+    # This is a graceful degradation strategy to prevent the entire library 
+    # from crashing due to missing optional dependencies.
     class MockException(Exception):
         pass
 
@@ -34,7 +36,7 @@ except ImportError:
         def get(self, *args: Any, **kwargs: Any) -> Any:
             return lambda f: f
 
-    # 创建伪造的 FastAPI 类和对象，防止 NameError
+    # Create fake FastAPI class and objects to prevent NameError
     def FastAPI(**kw: Any) -> MockApp:  # type: ignore
         return MockApp()
     Request = Mock  # type: ignore
@@ -42,7 +44,7 @@ except ImportError:
     HTMLResponse = Mock  # type: ignore
     StreamingResponse = Mock  # type: ignore
 
-# 尝试导入文件监控依赖 (Watchdog)
+# Attempt to import file monitoring dependencies (Watchdog).
 try:
     from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
@@ -51,26 +53,28 @@ try:
 except ImportError:
     HAS_WATCHDOG = False
 
-# 初始化 FastAPI 应用
+# Initialize the FastAPI application
 app = FastAPI(title="MermaidTrace Preview Server")
 
 
-# 用于管理 SSE (Server-Sent Events) 连接的全局状态类
+# Global state class for managing SSE (Server-Sent Events) connections
 class ConnectionManager:
     """
-    连接管理器：处理客户端的订阅与消息广播。
-    使用异步队列 (asyncio.Queue) 为每个连接的客户端存储待发送的消息。
+    Connection Manager: Handles client subscriptions and message broadcasting.
+    
+    Uses asyncio.Queue to store pending messages for each connected client,
+    enabling asynchronous communication.
     """
     def __init__(self) -> None:
-        # 存储所有活跃连接的队列集合
+        # Set of queues for all active connections
         self.active_connections: Set[asyncio.Queue[dict[str, Any]]] = set()
 
     async def subscribe(self) -> asyncio.Queue[dict[str, Any]]:
         """
-        客户端订阅：创建一个新的消息队列并加入活跃列表。
+        Client Subscription: Creates a new message queue and adds it to the active list.
         
         Returns:
-            asyncio.Queue: 用于接收消息的队列
+            asyncio.Queue: The queue used for receiving messages for this client.
         """
         queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self.active_connections.add(queue)
@@ -78,31 +82,31 @@ class ConnectionManager:
 
     def unsubscribe(self, queue: asyncio.Queue[dict[str, Any]]) -> None:
         """
-        取消订阅：从活跃列表中移除指定的队列。
-        通常在客户端断开连接时调用。
+        Unsubscribe: Removes the specified queue from the active list.
+        Typically called when a client disconnects.
         """
         self.active_connections.remove(queue)
 
     async def broadcast(self, data: dict[str, Any]) -> None:
         """
-        广播消息：向所有活跃的客户端队列推送消息。
+        Broadcast Message: Pushes a message to all active client queues.
         
         Args:
-            data: 要发送的数据字典
+            data: The dictionary containing data to send.
         """
         for queue in self.active_connections:
             await queue.put(data)
 
 
-# 全局连接管理器实例
+# Global instance of the connection manager
 manager = ConnectionManager()
 
-# 增强型 UI 的 HTML 模板
-# 包含：
-# 1. Mermaid.js: 用于渲染图表
-# 2. svg-pan-zoom: 用于图表的缩放和平移交互
-# 3. Tailwind CSS: 用于美化界面
-# 4. 自定义 JavaScript: 处理 SSE 事件、文件加载和渲染逻辑
+# Enhanced UI HTML Template
+# Contains:
+# 1. Mermaid.js: For diagram rendering
+# 2. svg-pan-zoom: For pan and zoom interactions
+# 3. Tailwind CSS: For UI styling
+# 4. Custom JavaScript: Handles SSE events, file loading, and rendering logic
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -110,14 +114,14 @@ HTML_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MermaidTrace Master Preview</title>
-    <!-- 引入必要的外部库 -->
+    <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8fafc; }
         .mermaid { background: white; }
-        /* 图表容器样式：设置背景网格和布局 */
+        /* Diagram Container: Grid background and layout */
         #diagram-container { 
             height: calc(100vh - 10rem); 
             overflow: hidden; 
@@ -127,7 +131,7 @@ HTML_TEMPLATE = """
             display: flex;
             flex-direction: column;
         }
-        /* SVG 包装器：处理鼠标交互 */
+        /* SVG Wrapper: Handles mouse interactions */
         #svg-wrapper { 
             flex: 1;
             width: 100%; 
@@ -141,7 +145,7 @@ HTML_TEMPLATE = """
         .sidebar-item:hover { background-color: #e2e8f0; }
         .sidebar-item.active { background-color: #3b82f6; color: white; }
         
-        /* 确保 mermaid 生成的 SVG 不受最大宽度限制，以便自由缩放 */
+        /* Ensure mermaid generated SVG is not constrained, allowing free zoom */
         #mermaid-graph {
             width: 100%;
             height: 100%;
@@ -156,18 +160,18 @@ HTML_TEMPLATE = """
     </style>
 </head>
 <body class="flex flex-col h-screen">
-    <!-- 顶部导航栏 -->
+    <!-- Top Navigation Bar -->
     <header class="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-sm">
         <div class="flex items-center space-x-3">
             <div class="bg-blue-600 text-white p-2 rounded-lg">
-                <!-- Logo 图标 -->
+                <!-- Logo Icon -->
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                 </svg>
             </div>
             <h1 class="text-xl font-bold text-gray-800">MermaidTrace <span class="text-blue-600">Master</span></h1>
         </div>
-        <!-- 工具栏按钮 -->
+        <!-- Toolbar Buttons -->
         <div class="flex items-center space-x-4">
             <span id="status-badge" class="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">Live Connected</span>
             <button onclick="resetZoom()" class="text-gray-600 hover:text-blue-600 transition" title="Reset Zoom">
@@ -180,17 +184,17 @@ HTML_TEMPLATE = """
     </header>
 
     <div class="flex flex-1 overflow-hidden">
-        <!-- 侧边栏：文件列表 -->
+        <!-- Sidebar: File List -->
         <aside class="w-64 bg-white border-r border-gray-200 overflow-y-auto hidden md:block">
             <div class="p-4 border-b border-gray-100">
                 <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Trace Files</h2>
             </div>
             <nav id="file-list" class="p-2 space-y-1">
-                <!-- 文件列表项将通过 JS 动态注入 -->
+                <!-- File list items will be injected via JS -->
             </nav>
         </aside>
 
-        <!-- 主内容区域：图表展示 -->
+        <!-- Main Content Area: Diagram Display -->
         <main class="flex-1 flex flex-col p-6 overflow-hidden">
             <div class="mb-4 flex justify-between items-end">
                 <div>
@@ -214,7 +218,7 @@ HTML_TEMPLATE = """
         let panZoomInstance = null;
         let currentFile = null;
 
-        // 初始化 Mermaid 库
+        // Initialize Mermaid Library
         function initMermaid() {
             if (typeof mermaid === 'undefined') {
                 console.log("Waiting for mermaid...");
@@ -225,7 +229,7 @@ HTML_TEMPLATE = """
             mermaid.initialize({ 
                 startOnLoad: false, 
                 theme: 'default',
-                securityLevel: 'loose', // 允许宽松的安全级别以支持 HTML 标签
+                securityLevel: 'loose', // Allow HTML tags
                 useMaxWidth: false,
                 sequence: { 
                     showSequenceNumbers: true,
@@ -234,23 +238,23 @@ HTML_TEMPLATE = """
                 }
             });
             
-            // 初始化文件列表
+            // Initialize file list
             updateFileList();
         }
 
-        // 加载指定文件内容
+        // Load content of a specific file
         async function loadFile(filename) {
             if (!filename) return;
             currentFile = filename;
             
-            // 更新侧边栏选中状态
+            // Update sidebar active state
             document.querySelectorAll('.sidebar-item').forEach(el => {
                 if (el.dataset.filename === filename) el.classList.add('active');
                 else el.classList.remove('active');
             });
 
             try {
-                // 调用后端 API 获取文件内容
+                // Fetch file content from backend API
                 const response = await fetch(`/api/file?name=${encodeURIComponent(filename)}`);
                 const data = await response.json();
                 
@@ -262,25 +266,25 @@ HTML_TEMPLATE = """
             }
         }
 
-        // 渲染 Mermaid 图表
+        // Render Mermaid Diagram
         async function renderDiagram(content) {
             const graphDiv = document.getElementById('mermaid-graph');
             graphDiv.removeAttribute('data-processed');
-            // 渲染新图表前清理旧内容
+            // Clear old content before rendering new
             graphDiv.innerHTML = content;
             
             try {
-                // 使用 mermaid API 生成 SVG
+                // Generate SVG using mermaid API
                 const { svg } = await mermaid.render('mermaid-svg-' + Date.now(), content);
                 graphDiv.innerHTML = svg;
-                // 设置平移和缩放功能
+                // Setup Pan and Zoom
                 setupPanZoom();
             } catch (err) {
                 console.error("Mermaid render error:", err);
             }
         }
 
-        // 配置 SVG 的平移和缩放交互
+        // Configure SVG Pan and Zoom interactions
         function setupPanZoom() {
             if (panZoomInstance) {
                 panZoomInstance.destroy();
@@ -288,17 +292,17 @@ HTML_TEMPLATE = """
             }
             const svg = document.querySelector('#mermaid-graph svg');
             if (svg) {
-                // 确保 SVG 占满容器
+                // Ensure SVG fills the container
                 svg.style.width = '100%';
                 svg.style.height = '100%';
                 svg.style.maxWidth = 'none';
                 svg.style.maxHeight = 'none';
                 
-                // 清除可能与 'fit' 冲突的显式宽高属性
+                // Remove explicit width/height that might conflict with 'fit'
                 svg.removeAttribute('width');
                 svg.removeAttribute('height');
                 
-                // 初始化 svg-pan-zoom
+                // Initialize svg-pan-zoom
                 panZoomInstance = svgPanZoom(svg, {
                     zoomEnabled: true,
                     controlIconsEnabled: false,
@@ -309,7 +313,7 @@ HTML_TEMPLATE = """
                     zoomScaleSensitivity: 0.2
                 });
 
-                // 窗口大小改变时自动适应
+                // Auto-fit on window resize
                 window.addEventListener('resize', () => {
                     if (panZoomInstance) {
                         panZoomInstance.resize();
@@ -320,7 +324,7 @@ HTML_TEMPLATE = """
             }
         }
 
-        // 重置缩放视图
+        // Reset Zoom View
         function resetZoom() {
             if (panZoomInstance) {
                 panZoomInstance.fit();
@@ -328,13 +332,13 @@ HTML_TEMPLATE = """
             }
         }
 
-        // 更新最后更新时间戳
+        // Update Last Updated Timestamp
         function updateTimestamp() {
             const now = new Date();
             document.getElementById('last-updated').textContent = `Last updated: ${now.toLocaleTimeString()}`;
         }
 
-        // 更新文件列表
+        // Update File List
         async function updateFileList() {
             const response = await fetch('/api/files');
             const files = await response.json();
@@ -354,13 +358,13 @@ HTML_TEMPLATE = """
                 list.appendChild(item);
             });
 
-            // 如果没有选中文件且有文件可用，默认加载第一个
+            // Default to first file if none selected
             if (!currentFile && files.length > 0) {
                 loadFile(files[0]);
             }
         }
 
-        // 建立 SSE 连接以接收实时更新
+        // Establish SSE Connection for Real-time Updates
         const eventSource = new EventSource("/events");
         eventSource.onmessage = (event) => {
             const data = JSON.parse(event.data);
@@ -377,16 +381,16 @@ HTML_TEMPLATE = """
             document.getElementById('status-badge').textContent = "Connection Lost";
         };
         
-        // 开始初始化流程
+        // Start Initialization
         initMermaid();
 
-        // 下载当前图表为 SVG 文件
+        // Download Current Diagram as SVG
         function downloadSVG() {
             const svg = document.querySelector('#diagram-container svg');
             if (!svg) return;
             const serializer = new XMLSerializer();
             let source = serializer.serializeToString(svg);
-            // 添加命名空间以确保 SVG 格式正确
+            // Add namespaces to ensure valid SVG
             if(!source.match(/^<svg[^>]+xmlns="http\\:\\/\\/www\\.w3\\.org\\/2000\\/svg"/)){
                 source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
             }
@@ -405,37 +409,37 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# 全局变量：要监控的目录或文件路径
-# 默认为当前目录
+# Global variable: Directory or file path to monitor
+# Defaults to current directory
 watch_dir: Path = Path(".")
 
 
 @app.get("/", response_class=HTMLResponse)
 async def get_index() -> str:
     """
-    主页路由。
+    Home page route.
     
     Returns:
-        str: 渲染后的 HTML 页面内容。
+        str: Rendered HTML page content.
     """
-    # 如果 watch_dir 是一个文件，我们可能需要立即渲染它或重定向
-    # 但目前 watch_dir 在 run_server 中被解析，前端逻辑会处理文件加载
+    # Note: If watch_dir is a file, the frontend logic handles the display.
+    # The actual path resolution happens in run_server.
     return HTML_TEMPLATE
 
 
 @app.get("/api/files")
 async def list_files() -> list[str]:
     """
-    获取文件列表 API。
+    API to retrieve the list of available files.
     
     Returns:
-        list[str]: 可用的 .mmd 文件名列表。
+        list[str]: List of .mmd filenames.
     """
-    # 如果监控的是单个文件，只返回该文件
+    # Single file mode: return only that file
     if os.path.isfile(str(watch_dir)):
         return [os.path.basename(str(watch_dir))]
 
-    # 如果监控的是目录，返回目录下所有 .mmd 文件
+    # Directory mode: return all .mmd files in the directory
     if os.path.isdir(str(watch_dir)):
         files = sorted([f.name for f in Path(watch_dir).glob("*.mmd")])
         return files
@@ -446,28 +450,28 @@ async def list_files() -> list[str]:
 @app.get("/api/file")
 async def get_file_content(name: str) -> dict[str, str]:
     """
-    获取特定文件内容 API。
+    API to retrieve the content of a specific file.
     
     Args:
-        name: 请求的文件名
+        name: The requested filename.
         
     Returns:
-        dict: 包含文件内容的字典 {"content": "..."}
+        dict: A dictionary containing the file content {"content": "..."}
         
     Raises:
-        HTTPException: 如果文件名非法或文件不存在
+        HTTPException: If the filename is invalid or file not found.
     """
-    # 安全检查：防止目录遍历攻击 (Directory Traversal)
+    # Security check: Prevent Directory Traversal attacks
     if ".." in name or "/" in name or "\\" in name:
         raise HTTPException(status_code=403, detail="Invalid filename")
 
     if os.path.isfile(str(watch_dir)):
-        # 单文件模式：忽略 name 参数或确保它匹配目标文件
+        # Single file mode: ensure request matches the target file
         target_file = Path(str(watch_dir))
         if target_file.name != name:
             raise HTTPException(status_code=404, detail="File not found")
     else:
-        # 目录模式：拼接路径
+        # Directory mode: construct full path
         target_file = Path(watch_dir) / name
 
     if not target_file.exists() or not str(target_file).endswith(".mmd"):
@@ -479,23 +483,23 @@ async def get_file_content(name: str) -> dict[str, str]:
 @app.get("/events")
 async def sse_endpoint(request: Request) -> StreamingResponse:
     """
-    Server-Sent Events (SSE) 端点。
-    用于向前端实时推送文件更新通知。
+    Server-Sent Events (SSE) endpoint.
+    Used to push real-time file update notifications to the frontend.
     """
     async def event_generator() -> AsyncGenerator[str, None]:
-        # 订阅更新
+        # Subscribe to updates
         queue = await manager.subscribe()
         try:
             while True:
-                # 检查客户端是否断开连接
+                # Check for client disconnection
                 if await request.is_disconnected():
                     break
-                # 等待队列中的新消息
+                # Wait for new messages in the queue
                 data = await queue.get()
-                # 发送 SSE 格式的数据
+                # Yield data in SSE format
                 yield f"data: {json.dumps(data)}\n\n"
         finally:
-            # 清理：取消订阅
+            # Cleanup: Unsubscribe on exit
             manager.unsubscribe(queue)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
@@ -503,12 +507,12 @@ async def sse_endpoint(request: Request) -> StreamingResponse:
 
 def run_server(target: str, port: int = 8000, open_browser: bool = True) -> None:
     """
-    启动 FastAPI 服务器以预览 Mermaid 图表。
+    Start the FastAPI server to preview Mermaid diagrams.
 
     Args:
-        target: 要监控的文件或目录路径。
-        port: 服务器绑定的端口号。
-        open_browser: 是否自动在默认浏览器中打开预览页面。
+        target: Path to the file or directory to monitor.
+        port: Port number to bind the server to.
+        open_browser: Whether to automatically open the default web browser.
     """
     global watch_dir
     target_path = Path(target).resolve()
@@ -517,24 +521,24 @@ def run_server(target: str, port: int = 8000, open_browser: bool = True) -> None
         print(f"Error: Target '{target}' not found.")
         return
 
-    # 设置全局监控路径
-    # 这里的逻辑稍显复杂：
-    # 如果 target 是文件，watch_dir 就设为该文件路径，API 会相应处理单文件模式
-    # 如果 target 是目录，watch_dir 就设为该目录路径
+    # Set global monitor path
+    # Logic:
+    # If target is a file, watch_dir is that file (API handles single-file mode).
+    # If target is a directory, watch_dir is that directory.
     watch_dir = target_path
 
-    # 检查服务器依赖是否安装
+    # Check if server dependencies are installed
     if not HAS_SERVER_DEPS:
         print("Error: FastAPI and Uvicorn are required for the preview server.")
         print("Please install them with: pip install mermaid-trace[server]")
         print("Or manually: pip install fastapi uvicorn")
         return
 
-    # 启动 Watchdog 文件监控
+    # Start Watchdog file monitoring
     if HAS_WATCHDOG:
-        # 确定监控范围 (Scope)
+        # Determine Watch Scope
         if target_path.is_file():
-            # Watchdog 只能监控目录，所以如果是单文件，我们需要监控其父目录
+            # Watchdog monitors directories, so for a single file, watch its parent
             watch_scope = str(target_path.parent)
             is_single_file = True
         else:
@@ -542,38 +546,50 @@ def run_server(target: str, port: int = 8000, open_browser: bool = True) -> None
             is_single_file = False
 
         class Handler(FileSystemEventHandler):
-            """文件系统事件处理器"""
+            """File System Event Handler"""
             def on_modified(self, event: Any) -> None:
                 if event.is_directory:
                     return
 
                 filename = os.path.basename(event.src_path)
 
-                # 过滤逻辑：只关心目标文件的变化
+                # Filter logic: Only care about target file(s)
                 if is_single_file:
-                    # 确保变化的绝对路径与目标路径一致
+                    # Ensure the modified absolute path matches target
                     if os.path.abspath(event.src_path) != str(target_path):
                         return
                 elif not filename.endswith(".mmd"):
-                    # 目录模式下，只关心 .mmd 后缀的文件
+                    # Directory mode: only care about .mmd files
                     return
 
-                # 广播文件更新事件
-                asyncio.run(manager.broadcast({"type": "update", "filename": filename}))
+                # Broadcast file update event
+                # Note: This runs in a separate thread managed by Watchdog.
+                # 'asyncio.run' creates a NEW event loop for this call.
+                # Ideally, we should thread-safe communicate with the main loop,
+                # but for simple broadcasting to independent queues, this may work 
+                # if the queues are not loop-bound or if we accept the risk.
+                # A more robust solution would use `call_soon_threadsafe`.
+                try:
+                    asyncio.run(manager.broadcast({"type": "update", "filename": filename}))
+                except Exception as e:
+                    print(f"Error broadcasting update: {e}")
 
             def on_created(self, event: Any) -> None:
-                # 处理新文件创建事件
+                # Handle new file creation
                 if not event.is_directory and event.src_path.endswith(".mmd"):
-                    if not is_single_file:  # 仅在监控目录时刷新列表
-                        asyncio.run(manager.broadcast({"type": "refresh_list"}))
+                    if not is_single_file:  # Refresh list only in directory mode
+                        try:
+                            asyncio.run(manager.broadcast({"type": "refresh_list"}))
+                        except Exception as e:
+                            print(f"Error broadcasting refresh: {e}")
 
-        # 配置并启动观察者
+        # Configure and start observer
         observer = Observer()
         observer.schedule(Handler(), watch_scope, recursive=False)
         observer.start()
         print(f"[*] Watching: {target_path}")
 
-    # 自动打开浏览器
+    # Auto-open browser
     if open_browser:
         import webbrowser
 
@@ -581,6 +597,6 @@ def run_server(target: str, port: int = 8000, open_browser: bool = True) -> None
         webbrowser.open(f"http://localhost:{port}")
 
     print(f"[*] Starting Server at http://localhost:{port}")
-    # 启动 Uvicorn 服务器
-    # host="0.0.0.0" 允许外部访问
+    # Start Uvicorn Server
+    # host="0.0.0.0" allows external access
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="error")
