@@ -21,6 +21,65 @@
   <a href="https://codecov.io/gh/xt765/mermaid-trace"><img src="https://img.shields.io/codecov/c/github/xt765/mermaid-trace?style=flat-square&logo=codecov&logoColor=white" alt="Codecov"></a>
 </p>
 
+## 🏗️ Architecture
+
+```mermaid
+flowchart TB
+    subgraph User["👤 User Code"]
+        A["@trace decorator"]
+        B["@trace_class"]
+        C["patch_object()"]
+    end
+
+    subgraph Core["⚙️ Core Layer"]
+        D["Decorators"]
+        E["LogContext"]
+        F["FlowEvent"]
+        G["MermaidFormatter"]
+        H["MermaidConfig"]
+    end
+
+    subgraph Handlers["📦 Handlers"]
+        I["MermaidFileHandler"]
+        J["AsyncMermaidHandler"]
+        K["RotatingHandler"]
+    end
+
+    subgraph Output["📄 Output"]
+        L[("flow.mmd")]
+        M["🌐 Live Preview"]
+    end
+
+    subgraph Integrations["🔗 Integrations"]
+        N["FastAPI Middleware"]
+        O["LangChain Callback"]
+    end
+
+    A --> D
+    B --> D
+    C --> D
+    D --> E
+    D --> F
+    E --> F
+    F --> G
+    H -.-> D
+    G --> I
+    G --> J
+    G --> K
+    I --> L
+    J --> L
+    K --> L
+    L --> M
+    N --> D
+    O --> D
+
+    style User fill:#e1f5fe,stroke:#01579b
+    style Core fill:#fff3e0,stroke:#e65100
+    style Handlers fill:#e8f5e9,stroke:#1b5e20
+    style Output fill:#fce4ec,stroke:#880e4f
+    style Integrations fill:#f3e5f5,stroke:#4a148c
+```
+
 ---
 
 ## ⚡️ Understand MermaidTrace in 5 Seconds
