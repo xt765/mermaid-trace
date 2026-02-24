@@ -65,6 +65,7 @@ async def distributed_trace(
     from mermaid_trace.core.context import LogContext
 
     current_tid = LogContext.current_trace_id()
+    # Explicitly cast to Optional[str] to satisfy type checker, though dict handles it
     return {"received_trace_id": x_trace_id, "active_trace_id": current_tid}
 
 
