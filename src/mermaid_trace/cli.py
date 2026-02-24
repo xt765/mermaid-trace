@@ -11,7 +11,8 @@ Usage:
 """
 
 import argparse  # Standard library for parsing command-line arguments
-import sys       # Used for system-specific parameters and functions (e.g., exit)
+import sys  # Used for system-specific parameters and functions (e.g., exit)
+
 
 def serve(target: str, port: int = 8000) -> None:
     """
@@ -53,7 +54,7 @@ def serve(target: str, port: int = 8000) -> None:
 def main() -> None:
     """
     Main entry point for the CLI application.
-    
+
     Responsible for parsing command-line arguments and invoking the appropriate
     function based on the subcommand provided.
     """
@@ -74,17 +75,17 @@ def main() -> None:
         "serve",
         help="Serve a Mermaid file or directory in the browser with live reload",
     )
-    
+
     # Add 'path' positional argument: the file or folder to preview
     serve_parser.add_argument(
         "path", help="Path to the .mmd file or directory to serve"
     )
-    
+
     # Add '--port' optional argument: server listening port
     serve_parser.add_argument(
         "--port", type=int, default=8000, help="Port to bind to (default: 8000)"
     )
-    
+
     # Add '--master' deprecated argument
     # Kept for backward compatibility with older scripts, but ignored in code
     serve_parser.add_argument(

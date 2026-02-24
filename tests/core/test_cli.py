@@ -17,15 +17,20 @@ def test_cli_serve_missing_deps(capsys: pytest.CaptureFixture[str]) -> None:
     with patch("mermaid_trace.server.HAS_SERVER_DEPS", False):
         with pytest.raises(SystemExit) as excinfo:
             serve("test.mmd")
-        
+
         assert excinfo.value.code == 1
         captured = capsys.readouterr()
-        assert "Error: The preview server requires additional dependencies." in captured.out
+        assert (
+            "Error: The preview server requires additional dependencies."
+            in captured.out
+        )
 
 
 def test_cli_main_serve() -> None:
     """Test that main parses arguments and calls serve."""
-    with patch.object(sys, "argv", ["mermaid-trace", "serve", "flow.mmd", "--port", "8080"]):
+    with patch.object(
+        sys, "argv", ["mermaid-trace", "serve", "flow.mmd", "--port", "8080"]
+    ):
         with patch("mermaid_trace.cli.serve") as mock_serve:
             main()
             mock_serve.assert_called_once_with("flow.mmd", 8080)

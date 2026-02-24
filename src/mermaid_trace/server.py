@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import AsyncGenerator, Set, Any
 
 # Attempt to import server-related dependencies (FastAPI, Uvicorn).
-# The try-except block ensures mermaid-trace can still be imported even if the 
+# The try-except block ensures mermaid-trace can still be imported even if the
 # [server] extra dependencies are not installed (though server features won't work).
 try:
     from fastapi import FastAPI, Request, HTTPException
@@ -24,7 +24,7 @@ except ImportError:
     HAS_SERVER_DEPS = False
 
     # Mock dependencies to allow module import without installation.
-    # This is a graceful degradation strategy to prevent the entire library 
+    # This is a graceful degradation strategy to prevent the entire library
     # from crashing due to missing optional dependencies.
     class MockException(Exception):
         pass
@@ -39,6 +39,7 @@ except ImportError:
     # Create fake FastAPI class and objects to prevent NameError
     def FastAPI(**kw: Any) -> MockApp:  # type: ignore
         return MockApp()
+
     Request = Mock  # type: ignore
     HTTPException = MockException  # type: ignore
     HTMLResponse = Mock  # type: ignore
@@ -61,10 +62,11 @@ app = FastAPI(title="MermaidTrace Preview Server")
 class ConnectionManager:
     """
     Connection Manager: Handles client subscriptions and message broadcasting.
-    
+
     Uses asyncio.Queue to store pending messages for each connected client,
     enabling asynchronous communication.
     """
+
     def __init__(self) -> None:
         # Set of queues for all active connections
         self.active_connections: Set[asyncio.Queue[dict[str, Any]]] = set()
@@ -72,7 +74,7 @@ class ConnectionManager:
     async def subscribe(self) -> asyncio.Queue[dict[str, Any]]:
         """
         Client Subscription: Creates a new message queue and adds it to the active list.
-        
+
         Returns:
             asyncio.Queue: The queue used for receiving messages for this client.
         """
@@ -90,7 +92,7 @@ class ConnectionManager:
     async def broadcast(self, data: dict[str, Any]) -> None:
         """
         Broadcast Message: Pushes a message to all active client queues.
-        
+
         Args:
             data: The dictionary containing data to send.
         """
@@ -418,7 +420,7 @@ watch_dir: Path = Path(".")
 async def get_index() -> str:
     """
     Home page route.
-    
+
     Returns:
         str: Rendered HTML page content.
     """
@@ -431,7 +433,7 @@ async def get_index() -> str:
 async def list_files() -> list[str]:
     """
     API to retrieve the list of available files.
-    
+
     Returns:
         list[str]: List of .mmd filenames.
     """
@@ -451,13 +453,13 @@ async def list_files() -> list[str]:
 async def get_file_content(name: str) -> dict[str, str]:
     """
     API to retrieve the content of a specific file.
-    
+
     Args:
         name: The requested filename.
-        
+
     Returns:
         dict: A dictionary containing the file content {"content": "..."}
-        
+
     Raises:
         HTTPException: If the filename is invalid or file not found.
     """
@@ -486,6 +488,7 @@ async def sse_endpoint(request: Request) -> StreamingResponse:
     Server-Sent Events (SSE) endpoint.
     Used to push real-time file update notifications to the frontend.
     """
+
     async def event_generator() -> AsyncGenerator[str, None]:
         # Subscribe to updates
         queue = await manager.subscribe()
@@ -547,6 +550,7 @@ def run_server(target: str, port: int = 8000, open_browser: bool = True) -> None
 
         class Handler(FileSystemEventHandler):
             """File System Event Handler"""
+
             def on_modified(self, event: Any) -> None:
                 if event.is_directory:
                     return
@@ -566,11 +570,13 @@ def run_server(target: str, port: int = 8000, open_browser: bool = True) -> None
                 # Note: This runs in a separate thread managed by Watchdog.
                 # 'asyncio.run' creates a NEW event loop for this call.
                 # Ideally, we should thread-safe communicate with the main loop,
-                # but for simple broadcasting to independent queues, this may work 
+                # but for simple broadcasting to independent queues, this may work
                 # if the queues are not loop-bound or if we accept the risk.
                 # A more robust solution would use `call_soon_threadsafe`.
                 try:
-                    asyncio.run(manager.broadcast({"type": "update", "filename": filename}))
+                    asyncio.run(
+                        manager.broadcast({"type": "update", "filename": filename})
+                    )
                 except Exception as e:
                     print(f"Error broadcasting update: {e}")
 
