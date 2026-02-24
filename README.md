@@ -13,7 +13,7 @@
   <a href="https://gitee.com/xt765/mermaid-trace"><img src="https://img.shields.io/badge/Gitee-mermaid--trace-red?style=flat-square&logo=gitee" alt="Gitee"></a>
 </p>
 <p align="center">
-  <a href="https://pypi.org/project/mermaid-trace/"><img src="https://img.shields.io/pypi/v/mermaid-trace.svg?style=flat-square&color=blue&logo=pypi&logoColor=white" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/mermaid-trace/"><img src="https://img.shields.io/pypi/v/mermaid-trace.svg?style=flat-square&color=blue&logo=pypi&logoColor=white&cache=0" alt="PyPI version"></a>
   <a href="https://pepy.tech/project/mermaid-trace"><img src="https://img.shields.io/pepy/dt/mermaid-trace.svg?logo=pypi&label=PyPI%20Downloads" alt="PyPI Downloads"></a>
   <a href="https://pypi.org/project/mermaid-trace/"><img src="https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python&logoColor=white" alt="Python Versions"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="License"></a>
