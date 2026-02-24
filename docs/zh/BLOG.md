@@ -24,7 +24,49 @@
 > 欢迎技术探讨与项目合作，解锁大模型与智能交互的无限可能！
 
 ---
-![在这里插入图片描述](https://i-blog.csdnimg.cn/direct/1aa03f2b53d64abe8b8d4d28fe60dc63.png)
+```mermaid
+graph TD
+    subgraph User_Space [用户层 User Space]
+        Code[Python 代码]
+        Decorators["@trace 装饰器"]
+        Integrations[FastAPI / LangChain 集成]
+    end
+
+    subgraph Core_Engine [核心引擎 Core Engine]
+        Context[ContextVars 上下文管理]
+        Queue[异步事件队列 Async Queue]
+        Formatter[Mermaid 格式化器]
+    end
+
+    subgraph Features [增强特性 Features]
+        Masking[数据脱敏 Data Masking]
+        Sampling[智能采样 Sampling]
+        Optimize[循环折叠 Optimization]
+    end
+
+    subgraph Output_Layer [输出与可视化 Output & Viz]
+        File[.mmd 文件]
+        Server[FastAPI 预览服务器]
+        Browser[Web 浏览器 (热重载)]
+    end
+
+    Code --> Decorators
+    Code --> Integrations
+    Decorators --> Context
+    Integrations --> Context
+    Context --> Queue
+    Queue --> Optimize
+    Optimize --> Masking
+    Masking --> Formatter
+    Formatter --> File
+    File -.->|Watchdog 监听| Server
+    Server == SSE 实时推送 ==> Browser
+
+    style User_Space fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style Core_Engine fill:#fff3e0,stroke:#ff6f00,stroke-width:2px
+    style Features fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style Output_Layer fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+```
 
 ### **前言：代码执行流的“黑盒”困境**
 
@@ -46,11 +88,14 @@
 
 在 v0.7.0 中，我们专注于**体验统一**与**企业级特性**：
 
+![Web 预览界面](../images/web_preview_ui.png)
+
 1.  **CLI 体验大一统**：
     - 彻底重构命令行工具，现在只需运行 `mermaid-trace serve`。
     - 无论是**单个文件**还是**整个目录**，默认开启增强型 Web 预览（Master 模式）。
     - 支持 **SSE 实时热重载**、**交互式缩放/平移**，无需再记忆繁琐的参数。
 2.  **分布式追踪模拟**：
+    ![分布式追踪预览](../images/distributed_trace_preview.png)
     - 新增 `10_distributed_trace_simulation.py` 示例，演示如何在微服务间传递 Trace Context。
     - 支持 **W3C Trace Context**、**B3** 等标准头，轻松串联跨服务调用。
 3.  **数据隐私与采样**：
