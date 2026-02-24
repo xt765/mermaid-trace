@@ -10,17 +10,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.7.0] - 2026-02-24
 
 ### Added
+- **Unified CLI**: Refactored the CLI to provide a unified experience. `mermaid-trace serve` now defaults to the enhanced Web preview server (Master mode) with hot-reload, pan/zoom, and directory browsing.
+- **Single File Preview**: Added support for previewing single `.mmd` files with full Web UI capabilities.
+- **Distributed Tracing Simulation**: Added `examples/10_distributed_trace_simulation.py` to demonstrate Trace Context propagation.
+- **Custom Masking**: Added `examples/11_custom_masking.py` for advanced data sanitization.
 - **Data Privacy**: Introduced `DataMasker` to automatically sanitize sensitive fields (e.g., `password`, `token`) in function arguments, return values, and dictionaries. Configurable via `config.mask_patterns`.
 - **Sampling Strategy**: Added `config.sample_rate` to control the percentage of traces recorded, reducing overhead in high-throughput production environments.
 - **Distributed Tracing**: Enhanced `FastAPI` middleware to support **W3C Trace Context**, **B3**, and custom `X-Trace-ID` headers, enabling cross-service trace propagation.
 - **Context Management**: Added `is_sampled` state to `LogContext` to efficiently propagate sampling decisions across async call chains.
 
 ### Improved
+- **Mermaid Rendering**: Fixed syntax errors caused by special characters (e.g., `<` , `>`) in Python object representations by implementing HTML entity escaping.
+- **LangChain Integration**: Enhanced robustness of `examples/09_langchain_integration.py` to support mock execution without installed dependencies.
 - **Test Suite**: Comprehensive update of the test suite, achieving **>90% coverage** with new tests for sanitization, sampling, and distributed tracing scenarios.
-- **Documentation**: Updated READMEs and examples to showcase data masking and sampling features.
+- **Documentation**: Updated READMEs and examples to showcase data masking, sampling features, and the new CLI usage.
 
 ### Fixed
-- **Type Safety**: Resolved Mypy errors in `LogContext` and example scripts.
+- **Type Safety**: Resolved Mypy errors in `LogContext`, `server.py` and example scripts.
 
 ## [0.6.1] - 2026-02-02
 
