@@ -25,29 +25,29 @@
 
 ---
 ```mermaid
-graph TD
-    subgraph User_Space [用户层 User Space]
-        Code[Python 代码]
+flowchart TD
+    subgraph User_Space ["用户层 User Space"]
+        Code["Python 代码"]
         Decorators["@trace 装饰器"]
-        Integrations[FastAPI / LangChain 集成]
+        Integrations["FastAPI / LangChain 集成"]
     end
 
-    subgraph Core_Engine [核心引擎 Core Engine]
-        Context[ContextVars 上下文管理]
-        Queue[异步事件队列 Async Queue]
-        Formatter[Mermaid 格式化器]
+    subgraph Core_Engine ["核心引擎 Core Engine"]
+        Context["ContextVars 上下文管理"]
+        Queue["异步事件队列 Async Queue"]
+        Formatter["Mermaid 格式化器"]
     end
 
-    subgraph Features [增强特性 Features]
-        Masking[数据脱敏 Data Masking]
-        Sampling[智能采样 Sampling]
-        Optimize[循环折叠 Optimization]
+    subgraph Features ["增强特性 Features"]
+        Masking["数据脱敏 Data Masking"]
+        Sampling["智能采样 Sampling"]
+        Optimize["循环折叠 Optimization"]
     end
 
-    subgraph Output_Layer [输出与可视化 Output & Viz]
-        File[.mmd 文件]
-        Server[FastAPI 预览服务器]
-        Browser[Web 浏览器 (热重载)]
+    subgraph Output_Layer ["输出与可视化 Output & Viz"]
+        File[".mmd 文件"]
+        Server["FastAPI 预览服务器"]
+        Browser["Web 浏览器 (热重载)"]
     end
 
     Code --> Decorators
@@ -59,8 +59,8 @@ graph TD
     Optimize --> Masking
     Masking --> Formatter
     Formatter --> File
-    File -.->|Watchdog 监听| Server
-    Server == SSE 实时推送 ==> Browser
+    File -.->|"Watchdog 监听"| Server
+    Server == "SSE 实时推送" ==> Browser
 
     style User_Space fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     style Core_Engine fill:#fff3e0,stroke:#ff6f00,stroke-width:2px
@@ -87,8 +87,6 @@ graph TD
 ### **0.7.0 版本重大更新亮点 🚀**
 
 在 v0.7.0 中，我们专注于**体验统一**与**企业级特性**：
-
-![Web 预览界面](../images/web_preview_ui.png)
 
 1.  **CLI 体验大一统**：
     - 彻底重构命令行工具，现在只需运行 `mermaid-trace serve`。
