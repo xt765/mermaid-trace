@@ -5,6 +5,11 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵守 [Semantic Versioning](https://semver.org/lang/zh-CN/)（语义化版本控制）。
 
+## [Unreleased]
+
+### 新增
+- **Python 3.14 支持**: 在 Python 3.14.2 上测试通过后，正式将 Python 3.14 添加到项目分类器、CI 工作流和 tox 配置中。
+
 ## [0.6.1] - 2026-02-02
 
 ### 修复

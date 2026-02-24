@@ -99,6 +99,9 @@ ipython_config.py
 #   This is especially recommended for binary dependencies to ensure reproducible builds.
 #poetry.lock
 
+# Custom
+blog/
+
 # pdm
 #   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
 #pdm.lock
