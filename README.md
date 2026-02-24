@@ -18,7 +18,8 @@
   <a href="https://pypi.org/project/mermaid-trace/"><img src="https://img.shields.io/pypi/pyversions/mermaid-trace.svg?style=flat-square&color=blue&logo=python&logoColor=white" alt="Python Versions"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="License"></a>
   <a href="https://github.com/xt765/mermaid-trace/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/xt765/mermaid-trace/ci.yml?style=flat-square&label=CI&logo=github-actions&logoColor=white" alt="CI Status"></a>
-  <a href="https://codecov.io/gh/xt765/mermaid-trace"><img src="https://codecov.io/gh/xt765/mermaid-trace/branch/main/graph/badge.svg?token" alt="Codecov"></a>
+  <a href="https://docs.astral.sh/ruff/"><img src="https://img.shields.io/badge/Linter-Ruff-orange?style=flat-square&logo=ruff&logoColor=white" alt="Ruff"></a>
+  <a href="https://microsoft.github.io/pyright/"><img src="https://img.shields.io/badge/Type%20Checker-Pyright-blue?style=flat-square&logo=python&logoColor=white" alt="Pyright"></a>
 </p>
 
 ## 🏗️ Architecture
