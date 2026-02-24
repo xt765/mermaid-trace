@@ -101,6 +101,13 @@ ipython_config.py
 
 # Custom
 blog/
+.venv*/
+*.mmd.1
+*.mmd.2
+*.mmd.3
+*.mmd.4
+*.mmd.5
+test.db
 
 # pdm
 #   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
