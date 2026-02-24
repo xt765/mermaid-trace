@@ -1,0 +1,12 @@
+sequenceDiagram
+    title Log Flow
+    autonumber
+
+Client->>ServiceA: Start Job
+ServiceA->>Network: HTTP POST({}, 'http://service-b/api/process', {'amount': 99.9, 'item': 'Order-123'})
+Network->>ServiceB: Handle Request({'X-Trace-ID': 'a06e04d2-4d5d-4738-8d50-163240e652..., {'amount': 99.9, 'item': 'Order-123'})
+ServiceB->>ServiceB_Logic: Process Data({'amount': 99.9, 'item': 'Order-123'})
+ServiceB_Logic-->>ServiceB: Return: {'result': 'Processed Order-123', 'status': 'proce...
+ServiceB-->>Network: Return: {'result': 'Processed Order-123', 'status': 'proce...
+Network-->>ServiceA: Return: {'result': 'Processed Order-123', 'status': 'proce...
+ServiceA-->>Client: Return: None

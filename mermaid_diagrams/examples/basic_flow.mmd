@@ -3,7 +3,7 @@ sequenceDiagram
     autonumber
 
 User->>WebApp: Click Login
-WebApp->>AuthService: Login({'db': <Database>}, 123, password='******')
+WebApp->>AuthService: Login({'db': #60;Database#62;}, 123, password='******')
 AuthService->>DB: Query({}, 123)
 DB-->>AuthService: Return: {'id': 123, 'name': 'Alice', 'secret_key': '******...
 AuthService-->>WebApp: Return: 'Welcome Alice'

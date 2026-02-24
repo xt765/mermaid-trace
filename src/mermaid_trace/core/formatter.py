@@ -297,13 +297,43 @@ class MermaidFormatter(BaseFormatter):
         """
         Escapes special characters in the message text for safe Mermaid rendering.
 
+        Mermaid sequence diagrams are sensitive to certain characters like <, >, ;, #, etc.
+        We escape them using HTML numeric entities to ensure robustness.
+
         Args:
             msg: Original message text
 
         Returns:
             str: Escaped message text
         """
-        # Replace newlines with <br/> for proper display in Mermaid diagrams
+        if not msg:
+            return ""
+
+        # 1. Replace newlines with <br/> for proper display in Mermaid diagrams
+        # We do this first so we don't double-escape the <br/> later
         msg = msg.replace("\n", "<br/>")
-        # Additional escaping could be added here if needed for other characters
-        return msg
+
+        # 2. Escape other special characters to HTML numeric entities
+        # Note: We use numeric entities (e.g., #60;) because they are safer across different
+        # Mermaid renderers than named entities (&lt;) or raw characters.
+        # However, we must be careful NOT to escape the <br/> tags we just added!
+
+        # Strategy: Split by <br/>, escape each part, then rejoin.
+        parts = msg.split("<br/>")
+        escaped_parts = []
+
+        for part in parts:
+            # Escape critical characters
+            # < -> #60;
+            # > -> #62;
+            # # -> #35;
+            # ; -> #59;
+            # " -> #34; (optional, but good for consistency)
+            part = part.replace("#", "#35;")
+            part = part.replace(";", "#59;")
+            part = part.replace("<", "#60;")
+            part = part.replace(">", "#62;")
+            part = part.replace('"', "#34;")
+            escaped_parts.append(part)
+
+        return "<br/>".join(escaped_parts)

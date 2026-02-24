@@ -1,0 +1,8 @@
+{
+    "mask_patterns": ["api_key", "password", "token", "secret", "private"],
+    "mask_value": "[HIDDEN_FROM_FILE]",
+    "capture_args": true,
+    "max_string_length": 100,
+    "max_arg_depth": 5,
+    "sample_rate": 1.0
+}

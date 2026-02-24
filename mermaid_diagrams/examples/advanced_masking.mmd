@@ -1,0 +1,8 @@
+sequenceDiagram
+    title Log Flow
+    autonumber
+
+Client->>PaymentSystem: Process Payment({'billing': {'address': '123 Main St', 'cc_num': '...)
+PaymentSystem->>Validator: Validate User({'billing': {'address': '123 Main St', 'cc_num': '...)
+Validator-->>PaymentSystem: Return: True
+PaymentSystem-->>Client: Return: {'status': 'success', 'transaction_id': 'tx_999'}

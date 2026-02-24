@@ -1,385 +1,104 @@
 """
-Command Line Interface (CLI) Module for MermaidTrace.
+命令行接口 (CLI) 模块 - MermaidTrace.
 
-This module serves as the entry point for the MermaidTrace command-line tools.
-It provides functionality to:
-1.  **Serve** Mermaid diagram files (.mmd) via a local HTTP server.
-2.  **Preview** diagrams in a web browser with live-reload capabilities.
-3.  **Monitor** file changes using polling or filesystem events (via `watchdog`).
+本模块作为 MermaidTrace 命令行工具的入口点。
+它提供了通过本地 HTTP 服务器预览 Mermaid 图表文件 (.mmd) 的功能，
+底层利用了 `server.py` 中基于 FastAPI 的健壮实现。
 
-Key Components:
--   `serve`: The primary command function that sets up the HTTP server and file watcher.
--   `_create_handler`: A factory function that generates a custom request handler with access to the target file.
--   `HTML_TEMPLATE`: A self-contained HTML page that renders Mermaid diagrams using the Mermaid.js CDN.
-
-Usage:
-    Run this module directly or via the `mermaid-trace` command (if installed).
-    Example: `python -m mermaid_trace.cli serve diagram.mmd --port 8080`
+使用方法:
+    直接运行此模块或通过 `mermaid-trace` 命令（如果已安装）调用。
+    示例: `mermaid-trace serve diagram.mmd --port 8080`
 """
 
-import argparse
-import http.server
-import socketserver
-import webbrowser
-import sys
-import os
-from pathlib import Path
-from typing import Type, Any
+import argparse  # 用于解析命令行参数的标准库
+import sys       # 用于访问系统特定的参数和函数，如退出程序
 
-# Attempt to import `watchdog` for efficient file system monitoring.
-# `watchdog` is an external library that allows the program to react to file events (like modifications) immediately.
-# We handle the ImportError gracefully to allow the CLI to function (via polling) even if `watchdog` is not installed.
-try:
-    from watchdog.observers import Observer
-    from watchdog.events import FileSystemEventHandler
-
-    HAS_WATCHDOG = True
-except ImportError:
-    # If watchdog is missing, we fall back to a simpler polling mechanism in the browser
-    HAS_WATCHDOG = False
-
-# HTML Template for the diagram preview page.
-# This string contains the full HTML structure served to the browser.
-#
-# It includes:
-# 1.  **Mermaid.js CDN**: Loads the library required to render the diagrams client-side.
-# 2.  **CSS Styling**: Basic styles for layout, readability, and the "Refresh" button.
-# 3.  **JavaScript Logic**:
-#     -   Initializes Mermaid.js.
-#     -   Implements a polling mechanism (`checkUpdate`) that hits the `/_status` endpoint.
-#     -   Reloads the page automatically if the server reports a newer file modification time.
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MermaidTrace Flow Preview</title>
-    <!-- Load Mermaid.js from CDN (Content Delivery Network) -->
-    <!-- This library parses the text-based diagram definition and renders it as an SVG -->
-    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    <style>
-        /* Basic styling for readability and layout */
-        body {{ font-family: sans-serif; padding: 20px; background: #f4f4f4; }}
-        
-        /* Container for the diagram to give it a "card" look */
-        .container {{ background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-        
-        h1 {{ color: #333; }}
-        
-        /* Allow horizontal scrolling for wide diagrams that might overflow the screen */
-        #diagram {{ overflow-x: auto; }}
-        
-        /* Floating refresh button for manual reloads */
-        .refresh-btn {{ 
-            position: fixed; bottom: 20px; right: 20px; 
-            padding: 10px 20px; background: #007bff; color: white; 
-            border: none; border-radius: 5px; cursor: pointer; font-size: 16px;
-        }}
-        .refresh-btn:hover {{ background: #0056b3; }}
-        
-        /* Status indicator to show the user that the live-reload is active */
-        .status {{
-            position: fixed; bottom: 20px; left: 20px;
-            font-size: 12px; color: #666;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>MermaidTrace Flow Preview: {filename}</h1>
-        <!-- The Mermaid diagram content will be injected here by the Python server -->
-        <!-- The 'mermaid' class triggers the Mermaid.js library to process this div -->
-        <div class="mermaid" id="diagram">
-            {content}
-        </div>
-    </div>
-    
-    <!-- Button to manually reload the page/diagram if auto-reload fails or is slow -->
-    <button class="refresh-btn" onclick="location.reload()">Refresh Diagram</button>
-    <div class="status" id="status">Monitoring for changes...</div>
-
-    <script>
-        // Initialize Mermaid with default settings.
-        // 'startOnLoad: true' tells Mermaid to find all .mermaid classes and render them immediately.
-        mermaid.initialize({{ startOnLoad: true, theme: 'default' }});
-        
-        // --- Live Reload Logic ---
-        
-        // We track the file's modification time (mtime) sent by the server during the initial page load.
-        // This value is injected into the template by Python.
-        const currentMtime = "{mtime}";
-        
-        /**
-         * Checks the server for updates to the source file.
-         * It fetches the '/_status' endpoint which returns the current file mtime.
-         */
-        function checkUpdate() {{
-            fetch('/_status')
-                .then(response => response.text())
-                .then(mtime => {{
-                    // If the server reports a different mtime than what we loaded with,
-                    // it means the file has changed on disk. We reload the page to see the new diagram.
-                    if (mtime && mtime !== currentMtime) {{
-                        console.log("File changed, reloading...");
-                        location.reload();
-                    }}
-                }})
-                .catch(err => console.error("Error checking status:", err));
-        }}
-        
-        // Poll every 1 second (1000 milliseconds).
-        // This is a simple, robust alternative to WebSockets for local development tools.
-        // It creates minimal load for a local server.
-        setInterval(checkUpdate, 1000);
-    </script>
-</body>
-</html>
-"""
-
-
-def _create_handler(
-    filename: str, path: Path
-) -> Type[http.server.SimpleHTTPRequestHandler]:
+def serve(target: str, port: int = 8000) -> None:
     """
-    Factory function to create a custom HTTP request handler class.
+    启动本地 HTTP 服务器以预览 Mermaid 图表。
 
-    We use a factory function (a function that returns a class) because `socketserver`
-    expects a class type, not an instance. This allows us to "close over" the `filename`
-    and `path` variables, making them available to the handler class without using globals.
+    此函数将实际的服务器逻辑委托给 `mermaid_trace.server.run_server`。
+    如果缺少必要的依赖项（如 fastapi, uvicorn），它会提供安装说明。
 
-    Args:
-        filename (str): The display name of the file being served (used in the HTML title).
-        path (Path): The `pathlib.Path` object pointing to the actual file on disk.
-
-    Returns:
-        Type[SimpleHTTPRequestHandler]: A custom class inheriting from `SimpleHTTPRequestHandler`.
+    参数:
+        target (str): 要服务的 .mmd 文件或目录的路径。
+        port (int): 服务器绑定的端口号（默认值: 8000）。
     """
+    try:
+        # 尝试从 server 模块导入运行函数和依赖检查标志
+        # 延迟导入是为了避免在不需要服务器功能时加载沉重的依赖
+        from .server import run_server, HAS_SERVER_DEPS
 
-    class Handler(http.server.SimpleHTTPRequestHandler):
-        """
-        Custom HTTP Request Handler for serving Mermaid diagram previews.
+        # 检查是否安装了服务器所需的依赖（fastapi, uvicorn 等）
+        if HAS_SERVER_DEPS:
+            # 依赖齐全，启动服务器
+            run_server(target, port)
+        else:
+            # 依赖缺失，打印错误信息并提示用户安装
+            # 注意：虽然提示中使用 pip，但在现代 Python 开发中推荐使用 uv 等工具
+            print("Error: The preview server requires additional dependencies.")
+            print("Please install them with:")
+            print("    pip install mermaid-trace[server]")
+            print("Or manually:")
+            print("    pip install fastapi uvicorn")
+            sys.exit(1)  # 非零状态码退出，表示发生错误
 
-        This handler overrides standard methods to provide two specific endpoints:
-        1.  `/` (Root): Serves the HTML wrapper with the embedded diagram content.
-        2.  `/_status`: Returns the file's current modification time (used for live reload).
-        """
-
-        def log_message(self, format: str, *args: Any) -> None:
-            """
-            Override `log_message` to suppress default HTTP request logging.
-
-            By default, `SimpleHTTPRequestHandler` logs every request to stderr.
-            We override this to keep the console output clean, showing only important application logs.
-            """
-            pass
-
-        def do_GET(self) -> None:
-            """
-            Handle HTTP GET requests.
-
-            Routes:
-            -   **/**: Reads the target file, injects it into `HTML_TEMPLATE`, and serves the HTML.
-            -   **/_status**: Checks the file's modification time and returns it as plain text.
-            -   **Others**: Falls back to the default file serving behavior (though typically not used here).
-            """
-            if self.path == "/":
-                # --- Root Endpoint: Serve the HTML Page ---
-                self.send_response(200)
-                self.send_header("Content-type", "text/html")
-                self.end_headers()
-
-                try:
-                    # Read the current content of the Mermaid file from disk.
-                    # We read it every time the page is requested to ensure we get the latest version.
-                    content = path.read_text(encoding="utf-8")
-                    # Get the modification time to embed in the page for the JS poller.
-                    mtime = str(path.stat().st_mtime)
-                except Exception as e:
-                    # Error Handling:
-                    # If reading fails (e.g., file locked, permissions, deleted),
-                    # we render a special Mermaid diagram showing the error message.
-                    # This provides immediate visual feedback in the browser.
-                    content = f"sequenceDiagram\nNote right of Error: Failed to read file: {e}"
-                    mtime = "0"
-
-                # Inject variables into the HTML template
-                html = HTML_TEMPLATE.format(
-                    filename=filename, content=content, mtime=mtime
-                )
-                self.wfile.write(html.encode("utf-8"))
-
-            elif self.path == "/_status":
-                # --- Status Endpoint: Live Reload Polling ---
-                # The client-side JavaScript calls this endpoint periodically.
-                self.send_response(200)
-                self.send_header("Content-type", "text/plain")
-                self.end_headers()
-                try:
-                    # Return the current modification time as the response body.
-                    mtime = str(path.stat().st_mtime)
-                except OSError:
-                    # If the file cannot be accessed (e.g., deleted), return "0".
-                    mtime = "0"
-                self.wfile.write(mtime.encode("utf-8"))
-
-            else:
-                # --- Fallback: Default Behavior ---
-                # Useful if the HTML template referenced other static assets (images, css files),
-                # though currently everything is embedded.
-                super().do_GET()
-
-    return Handler
-
-
-def serve(filename: str, port: int = 8000, master: bool = False) -> None:
-    """
-    Starts the local HTTP server and file watcher to preview a Mermaid diagram.
-
-    This is the core logic for the `serve` command. It sets up the environment,
-    opens the browser, and enters a blocking loop to serve requests.
-
-    Workflow:
-    1.  Validates the input file.
-    2.  Sets up a `watchdog` observer (if installed) for console logging of changes.
-    3.  Creates the custom HTTP handler using `_create_handler`.
-    4.  Opens the user's default web browser to the server URL.
-    5.  Starts a threaded TCP server to handle HTTP requests.
-
-    Args:
-        filename (str): The path to the .mmd file to serve.
-        port (int): The port number to bind the server to (default: 8000).
-        master (bool): Whether to use the enhanced Master Preview Server (FastAPI + SSE).
-    """
-    # 1. Enhanced Master Mode
-    if master:
-        try:
-            from .server import run_server, HAS_SERVER_DEPS
-
-            if HAS_SERVER_DEPS:
-                # For master mode, we watch the directory of the file
-                target_dir = os.path.dirname(os.path.abspath(filename))
-                if os.path.isdir(filename):
-                    target_dir = os.path.abspath(filename)
-
-                # Open browser first
-                webbrowser.open(f"http://localhost:{port}")
-                run_server(target_dir, port)
-                return
-            else:
-                print(
-                    "Warning: FastAPI/Uvicorn not found. Falling back to basic server."
-                )
-        except ImportError:
-            print("Warning: server module not found. Falling back to basic server.")
-
-    # Create a Path object for robust file path handling
-    path = Path(filename)
-
-    # 1. Validation
-    if not path.exists():
-        print(f"Error: File '{filename}' not found.")
+    except ImportError:
+        # 捕获导入 server 模块本身失败的情况（例如文件损坏或路径错误）
+        print("Error: Could not import server module.")
         sys.exit(1)
-
-    # 2. Watchdog Setup (Optional)
-    # If `watchdog` is installed, we use it to print immediate feedback to the console when the file changes.
-    # Note: The browser reload is driven by the JS polling the `/_status` endpoint, not by this observer.
-    # This observer is primarily for developer feedback in the terminal.
-    observer = None
-    if HAS_WATCHDOG:
-
-        class FileChangeHandler(FileSystemEventHandler):
-            """Internal handler class for Watchdog events."""
-
-            def on_modified(self, event: Any) -> None:
-                """Triggered when a file is modified in the watched directory."""
-                # We only care about modifications to the specific file we are serving.
-                if not event.is_directory and os.path.abspath(event.src_path) == str(
-                    path.resolve()
-                ):
-                    print(f"[Watchdog] File changed: {filename}")
-
-        print("Initializing file watcher...")
-        observer = Observer()
-        # Watch the directory containing the file, but filter events in the handler
-        observer.schedule(FileChangeHandler(), path=str(path.parent), recursive=False)
-        observer.start()
-    else:
-        print(
-            "Watchdog not installed. Falling back to polling mode (client-side only)."
-        )
-
-    # 3. Create Server Handler
-    HandlerClass = _create_handler(filename, path)
-
-    # 4. User Feedback
-    print(f"Serving {filename} at http://localhost:{port}")
-    print("Press Ctrl+C to stop.")
-
-    # 5. Open Browser
-    # We open the browser *before* the server loop blocks, but the request might fail if the server
-    # isn't ready instantly. However, `socketserver` setup is usually fast enough.
-    webbrowser.open(f"http://localhost:{port}")
-
-    # 6. Start Server
-    # We use `ThreadingTCPServer` so that multiple requests (e.g., polling + main page load)
-    # can be handled concurrently. This prevents the polling loop from blocking the page load.
-    with socketserver.ThreadingTCPServer(("", port), HandlerClass) as httpd:
-        try:
-            # Block and handle requests indefinitely
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            # 7. Graceful Shutdown
-            # Catch Ctrl+C to clean up resources properly
-            print("\nStopping server...")
-            if observer:
-                observer.stop()
-                observer.join()
-            httpd.server_close()
 
 
 def main() -> None:
     """
-    Main entry point for the CLI application.
-
-    Responsibilities:
-    1.  **Argument Parsing**: Uses `argparse` to define commands and options.
-    2.  **Command Dispatch**: Calls the appropriate function based on the user's command.
+    CLI 应用程序的主入口点。
+    负责解析命令行参数并根据子命令调用相应的功能函数。
     """
-    # Initialize the argument parser with a description of the tool
+    # 创建顶级参数解析器
     parser = argparse.ArgumentParser(
-        description="MermaidTrace CLI - Preview Mermaid diagrams in browser"
+        description="MermaidTrace CLI - 在浏览器中预览 Mermaid 图表"
     )
 
-    # Create sub-parsers to handle different commands (currently only 'serve')
+    # 创建子命令解析器，用于区分不同的操作（如 'serve'）
+    # dest="command" 表示将子命令的名称存储在 args.command 属性中
     subparsers = parser.add_subparsers(
-        dest="command", required=True, help="Available commands"
+        dest="command", required=True, help="可用命令"
     )
 
-    # --- 'serve' command ---
-    # Defines the 'serve' command which takes a file path and an optional port
+    # --- 'serve' 命令定义 ---
+    # 添加 'serve' 子命令：用于启动实时预览服务器
     serve_parser = subparsers.add_parser(
-        "serve", help="Serve a Mermaid file in the browser with live reload"
+        "serve",
+        help="在浏览器中服务 Mermaid 文件或目录，支持实时重载",
     )
-    serve_parser.add_argument("file", help="Path to the .mmd file to serve")
+    
+    # 添加 'path' 位置参数：指定要预览的文件或文件夹
     serve_parser.add_argument(
-        "--port", type=int, default=8000, help="Port to bind to (default: 8000)"
+        "path", help="要服务的 .mmd 文件或目录的路径"
     )
+    
+    # 添加 '--port' 可选参数：指定服务器监听端口
+    serve_parser.add_argument(
+        "--port", type=int, default=8000, help="绑定的端口 (默认: 8000)"
+    )
+    
+    # 添加 '--master' 废弃参数
+    # 保留此参数是为了向后兼容旧版本脚本，但在代码中会被忽略
     serve_parser.add_argument(
         "--master",
         action="store_true",
-        help="Use enhanced Master Preview (requires FastAPI)",
+        help="已废弃: Master 模式现在是默认模式。",
     )
 
-    # Parse the arguments provided by the user
+    # 解析命令行参数
     args = parser.parse_args()
 
-    # Dispatch logic
+    # 根据解析出的子命令分发到对应的处理函数
     if args.command == "serve":
-        # Invoke the serve function with parsed arguments
-        serve(args.file, args.port, args.master)
+        # 如果是 'serve' 命令，调用 serve 函数
+        serve(args.path, args.port)
 
 
 if __name__ == "__main__":
-    # Standard boilerplate to run the main function when the script is executed directly
+    # 当脚本被直接运行时执行 main 函数
     main()

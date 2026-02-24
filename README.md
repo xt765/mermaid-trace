@@ -211,13 +211,11 @@ login("admin")
 Run the built-in CLI tool to preview in real-time (with hot-reload):
 
 ```bash
-# Basic preview
+# Preview a single file (Auto-reload, Pan/Zoom supported)
 mermaid-trace serve my_flow.mmd
 
-# Master mode (Directory browsing, zoom, multi-file switching)
-mermaid-trace serve . --master
-# Or preview a specific file in Master mode
-mermaid-trace serve .\mermaid_diagrams\examples\08-log-rotation.mmd --master
+# Preview a directory (File browser, Multi-file switching)
+mermaid-trace serve .
 ```
 
 ### 🔗 LangChain Integration

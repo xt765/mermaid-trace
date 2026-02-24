@@ -1,0 +1,8 @@
+sequenceDiagram
+    title Log Flow
+    autonumber
+
+App->>ConfigLoader: Initialize App
+ConfigLoader-->>App: Return: None
+Unknown->>Service: Do Work('[HIDDEN_FROM_FILE]')
+Service-->>Unknown: Return: 'Work Done'

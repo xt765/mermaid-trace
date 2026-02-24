@@ -53,5 +53,9 @@ def main() -> None:
 if __name__ == "__main__":
     print("Running basic example...")
     main()
-    print("Done! Open 'basic_flow.mmd' to see the diagram.")
+    print("Done! Open 'mermaid_diagrams/examples/basic_flow.mmd' to see the diagram.")
     print("Check the file content to verify 'password' and 'secret_key' are masked!")
+    print(
+        "\n💡 TIP: Run the live preview server to see the diagram update in real-time:"
+    )
+    print("        mermaid-trace serve mermaid_diagrams/examples/basic_flow.mmd")

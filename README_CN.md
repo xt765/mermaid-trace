@@ -235,13 +235,11 @@ login("admin")
 运行代码后，使用内置 CLI 工具实时预览（支持热重载）：
 
 ```bash
-# 基础预览
+# 预览单个文件（支持热重载、缩放平移）
 mermaid-trace serve my_flow.mmd
 
-# Master 模式 (支持目录浏览、缩放、多文件切换)
-mermaid-trace serve . --master
-# 或者在 Master 模式下预览特定文件
-mermaid-trace serve .\mermaid_diagrams\examples\08-log-rotation.mmd --master
+# 预览目录（支持文件浏览、多文件切换）
+mermaid-trace serve .
 ```
 
 ### 🔗 LangChain 集成

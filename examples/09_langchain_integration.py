@@ -26,10 +26,10 @@ flow_logger.addHandler(
 
 def demo_with_mock_langchain() -> None:
     """
-    Since we don't want to require langchain-core to run this example,
-    we mock the behavior of a LangChain chain calling the handler.
+    Mock behavior of a LangChain chain calling the handler.
+    Used when langchain is not installed.
     """
-    print("🚀 Starting LangChain Mock Trace...")
+    print("🚀 Starting LangChain Mock Trace (No langchain installed)...")
 
     # Initialize the handler
     handler = MermaidTraceCallbackHandler(host_name="MyApp")
@@ -67,25 +67,59 @@ def demo_with_mock_langchain() -> None:
     print("--- Chain End ---")
     handler.on_chain_end(outputs={"answer": "MermaidTrace is a visualization tool."})
 
-    print(
-        "\n✅ Done! Check 'mermaid_diagrams/examples/langchain_trace.mmd' for the result."
-    )
+
+def demo_with_real_langchain() -> None:
+    """
+    Runs a real LangChain chain if dependencies are present.
+    """
+    try:
+        from langchain_openai import ChatOpenAI  # type: ignore
+        from langchain_core.prompts import ChatPromptTemplate
+        from langchain_core.output_parsers import StrOutputParser
+    except ImportError:
+        print("❌ LangChain dependencies missing for real demo.")
+        return
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        print("⚠️  OPENAI_API_KEY not found. Skipping real API call.")
+        print("   Run: set OPENAI_API_KEY=sk-... to try the real demo.")
+        # Fallback to mock if no key
+        demo_with_mock_langchain()
+        return
+
+    print("🚀 Starting REAL LangChain Trace...")
+
+    # 1. Setup Chain
+    handler = MermaidTraceCallbackHandler(host_name="LangChainApp")
+    llm = ChatOpenAI(api_key=api_key, model="gpt-3.5-turbo")
+    prompt = ChatPromptTemplate.from_template("Tell me a short joke about {topic}")
+    chain = prompt | llm | StrOutputParser()
+
+    # 2. Invoke with Handler
+    print("Invoking chain...")
+    result = chain.invoke({"topic": "debugging"}, config={"callbacks": [handler]})
+    print(f"Result: {result}")
 
 
 if __name__ == "__main__":
-    demo_with_mock_langchain()
+    # Check for LangChain availability
+    try:
+        import langchain_core  # noqa: F401
+        import langchain_openai  # noqa: F401
 
-    # Instructions for real LangChain usage:
-    """
-    # To use with real LangChain:
-    from langchain_openai import ChatOpenAI
-    from langchain_core.prompts import ChatPromptTemplate
-    
-    handler = MermaidTraceCallbackHandler()
-    llm = ChatOpenAI()
-    prompt = ChatPromptTemplate.from_template("tell me a joke about {topic}")
-    chain = prompt | llm
-    
-    # Just pass the handler to the invoke method
-    chain.invoke({"topic": "bears"}, config={"callbacks": [handler]})
-    """
+        HAS_LANGCHAIN = True
+    except ImportError:
+        HAS_LANGCHAIN = False
+
+    if HAS_LANGCHAIN:
+        demo_with_real_langchain()
+    else:
+        demo_with_mock_langchain()
+        print(
+            "\n💡 TIP: Install 'langchain-openai' and set OPENAI_API_KEY to run the real demo!"
+        )
+
+    print(
+        "\n✅ Done! Check 'mermaid_diagrams/examples/langchain_trace.mmd' for the result."
+    )

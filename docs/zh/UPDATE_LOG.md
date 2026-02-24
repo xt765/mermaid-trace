@@ -1,5 +1,30 @@
 # 更新日志 (UPDATE_LOG)
 
+## [2026-02-24] - CLI 重构、Web 预览增强与生态扩展
+
+### 核心架构升级
+- **CLI 统一重构**: 
+  - 彻底重写了命令行接口，废弃了基于 `http.server` 的简易实现，统一使用基于 FastAPI 的增强型服务器。
+  - 移除了 `--master` 参数，现在 `mermaid-trace serve` 默认开启全功能 Web 预览（支持热重载、缩放、平移）。
+  - 支持单文件模式：`mermaid-trace serve file.mmd` 也能享受完整的 Web UI 体验。
+- **Mermaid 渲染修复**: 
+  - 修复了 Python 对象表示（如 `<User>`）包含特殊字符导致 Mermaid 语法解析错误的问题。
+  - 实现了 HTML 实体转义机制，确保 `<`、`>` 等字符在图表中正确显示。
+
+### 生态集成与示例
+- **LangChain 集成增强**: 
+  - 优化了 `examples/09_langchain_integration.py`，支持在未安装 LangChain 环境下的 Mock 运行模式，方便用户体验。
+  - 修复了类型检查问题，确保集成代码的健壮性。
+- **新增高级示例**:
+  - `10_distributed_trace_simulation.py`: 演示了如何在分布式系统中传递 Trace Context。
+  - `11_custom_masking.py`: 展示了如何自定义数据脱敏逻辑（如递归脱敏）。
+  - `12_config_from_file.py`: 演示了从 JSON 文件加载配置。
+
+### 文档与规范
+- **中英文文档同步**: 更新了 `README` 和 `USER_GUIDE`，反映了 CLI 的最新用法。
+- **代码注释**: 全面更新了 `cli.py` 和 `server.py` 的中文代码注释，详细解释了服务器实现原理。
+- **依赖管理**: 在 `pyproject.toml` 中新增了 `server` extras，方便用户一键安装服务器依赖 (`pip install mermaid-trace[server]`)。
+
 ## [2026-02-02] - QA 强化与文档精化 (Refinement)
 
 ### 代码质量强化
