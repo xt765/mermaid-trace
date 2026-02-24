@@ -18,7 +18,7 @@
   <a href="https://pypi.org/project/mermaid-trace/"><img src="https://img.shields.io/pypi/pyversions/mermaid-trace.svg?style=flat-square&color=blue&logo=python&logoColor=white" alt="Python Versions"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="License"></a>
   <a href="https://github.com/xt765/mermaid-trace/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/xt765/mermaid-trace/ci.yml?style=flat-square&label=CI&logo=github-actions&logoColor=white" alt="CI Status"></a>
-  <a href="https://codecov.io/gh/xt765/mermaid-trace"><img src="https://img.shields.io/codecov/c/github/xt765/mermaid-trace?style=flat-square&logo=codecov&logoColor=white" alt="Codecov"></a>
+  <a href="https://codecov.io/gh/xt765/mermaid-trace"><img src="https://codecov.io/gh/xt765/mermaid-trace/branch/main/graph/badge.svg?token" alt="Codecov"></a>
 </p>
 
 ## 🏗️ Architecture
