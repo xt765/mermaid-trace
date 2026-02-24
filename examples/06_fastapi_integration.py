@@ -57,7 +57,9 @@ async def login(
 
 
 @app.get("/distributed")
-async def distributed_trace(x_trace_id: Optional[str] = Header(None)) -> Dict[str, Optional[str]]:
+async def distributed_trace(
+    x_trace_id: Optional[str] = Header(None),
+) -> Dict[str, Optional[str]]:
     # Demonstrate trace propagation.
     # If you call this with header 'X-Trace-ID: 123', the log will use that ID.
     from mermaid_trace.core.context import LogContext
