@@ -265,7 +265,7 @@ chain.invoke({"input": "..."}, config={"callbacks": [handler]})
 - **分布式追踪**：支持 **W3C Trace Context**、**B3** 等标准头，串联微服务调用链。
 - **第三方库追踪**：使用 `patch_object` 对外部库方法做 patch 并加入追踪。
 - **异步支持**：无缝支持 `asyncio` 协程与并发。
-- **增强型 Web UI**：交互式预览服务器，支持文件列表、自动刷新和缩放平移（使用 `--master`）。
+- **增强型 Web UI**：交互式预览服务器，支持文件列表、自动刷新和缩放平移。
 - **智能折叠**：自动折叠重复的高频调用和识别循环模式，防止图表过载。
 - **FastAPI 集成**：内置中间件，支持 HTTP 请求追踪及跨服务 Trace ID 传递。
 - **LangChain 集成**：提供 Callback Handler，可视化 LLM 链、Agent 工具调用及 RAG 检索路径。

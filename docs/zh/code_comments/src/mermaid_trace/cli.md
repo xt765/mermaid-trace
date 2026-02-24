@@ -1,45 +1,36 @@
 # CLI 命令行工具模块 (cli.py)
 
-`cli.py` 是 MermaidTrace 命令行工具的入口点。它提供了一个本地 HTTP 服务器，用于在浏览器中实时预览生成的 Mermaid 序列图（.mmd 文件），并支持自动刷新。
+`cli.py` 是 MermaidTrace 命令行工具的入口点。在 v0.7.0 版本中，它经过了全面重构，现在作为一个轻量级的调度器，将所有 Web 服务逻辑委托给功能更强大的 `server.py` 模块。
 
 ## 核心功能
 
-- **本地预览服务器**: 启动一个微型 HTTP 服务器，将 Mermaid 文件渲染为网页。
-- **Master 增强模式**: 集成 FastAPI 和 SSE 技术，提供支持文件列表浏览、缩放平移和即时更新的高级预览界面。
-- **实时预览与自动刷新**: 使用浏览器端轮询（基础模式）或 SSE（Master 模式），当检测到文件变动时自动刷新页面。
-- **文件监控**: 集成 `watchdog` 库（可选）进行高效的文件系统监控。
-- **内嵌渲染引擎**: 使用 Mermaid.js CDN 在客户端渲染图表，无需安装复杂的图形库。
+- **统一入口**: 提供 `mermaid-trace serve` 命令，无需区分模式。
+- **智能依赖检查**: 在启动服务器前检查是否安装了 `fastapi` 和 `uvicorn` 等可选依赖，如果缺失则给出友好的安装提示。
+- **参数解析**: 使用 `argparse` 处理命令行参数，支持指定文件路径和端口。
+- **向后兼容**: 保留了 `--master` 参数（虽然已不再需要），以兼容旧版本的脚本。
 
 ## 关键设计
 
-### 1. HTML 模板与 Mermaid.js 集成
+### 1. 延迟导入 (Lazy Import)
 
-模块内置了一个 `HTML_TEMPLATE` 字符串，它包含了：
-- **Mermaid.js 加载**: 从 CDN 引入库文件。
-- **自动刷新逻辑**: JavaScript `setInterval` 每秒调用 `/_status` 接口，比对文件修改时间（mtime）。
-- **错误容错机制**: 如果文件读取失败（例如文件被占用、权限不足或被删除），后端会注入 `mtime = "0"` 并生成一个包含错误提示的 Mermaid 图表。这确保了前端页面不会崩溃，且用户能立即看到错误原因。
-
-### 2. 自定义请求处理器工厂 (`_create_handler`)
-
-为了向 `socketserver` 传递动态参数（如文件名和路径），使用了工厂模式。
+为了保持 CLI 工具的轻量级启动速度，`server` 模块（包含繁重的 FastAPI 依赖）仅在用户实际执行 `serve` 命令时才会被导入。
 
 ```python
-def _create_handler(filename: str, path: Path):
-    class Handler(http.server.SimpleHTTPRequestHandler):
-        def do_GET(self):
-            if self.path == "/":
-                # 渲染 HTML 模板并注入内容
-                ...
-            elif self.path == "/_status":
-                # 返回文件的最新修改时间 (mtime)
-                ...
-    return Handler
+def serve(...):
+    try:
+        from .server import run_server
+        ...
 ```
 
-### 3. 混合监控模式
+### 2. 优雅降级与错误提示
 
-- **Watchdog (服务端)**: 如果安装了 `watchdog`，会在控制台实时打印文件变动日志。
-- **Polling (客户端)**: 浏览器通过 Ajax 轮询 `/_status` 接口，这是实现自动刷新的核心机制，即使没有 `watchdog` 也能工作。
+如果用户只安装了核心库（`pip install mermaid-trace`）而没有安装服务器依赖，CLI 会捕获 `ImportError` 或检查 `HAS_SERVER_DEPS` 标志，并打印出明确的安装指引：
+
+```text
+Error: The preview server requires additional dependencies.
+Please install them with:
+    pip install mermaid-trace[server]
+```
 
 ## 源码分析与注释
 

@@ -10,17 +10,23 @@
 ## [0.7.0] - 2026-02-24
 
 ### 新增
+- **CLI 统一重构**: 重构了命令行工具以提供统一体验。`mermaid-trace serve` 现在默认启动增强型 Web 预览服务器（Master 模式），支持热重载、缩放平移和目录浏览。
+- **单文件预览**: 支持预览单个 `.mmd` 文件并享受完整的 Web UI 功能。
+- **分布式追踪模拟**: 新增 `examples/10_distributed_trace_simulation.py` 演示 Trace Context 传播。
+- **自定义脱敏**: 新增 `examples/11_custom_masking.py` 展示高级数据清洗。
 - **数据隐私**: 引入 `DataMasker`，自动对函数参数、返回值和字典中的敏感字段（如 `password`, `token`）进行脱敏处理。可通过 `config.mask_patterns` 配置。
 - **采样策略**: 新增 `config.sample_rate`，用于控制记录 Trace 的百分比，显著降低高并发生产环境下的性能开销。
 - **分布式追踪**: 增强 `FastAPI` 中间件，支持 **W3C Trace Context**、**B3** 以及自定义 `X-Trace-ID` 请求头，实现跨微服务的全链路追踪。
 - **上下文管理**: 在 `LogContext` 中新增 `is_sampled` 状态，确保采样决策在异步调用链中高效传播。
 
 ### 改进
+- **Mermaid 渲染**: 修复了 Python 对象表示中特殊字符（如 `<` , `>`）导致的语法错误，实现了 HTML 实体转义。
+- **LangChain 集成**: 增强了 `examples/09_langchain_integration.py` 的健壮性，支持在未安装依赖时的 Mock 运行。
 - **测试套件**: 全面更新测试套件，新增针对脱敏、采样和分布式追踪场景的测试用例，覆盖率达到 **>90%**。
-- **文档体系**: 更新了中英文 README 和示例代码，展示了最新的数据脱敏和采样功能。
+- **文档体系**: 更新了中英文 README 和示例代码，展示了最新的数据脱敏、采样功能及新版 CLI 用法。
 
 ### 修复
-- **类型安全**: 解决了 `LogContext` 和示例脚本中的 Mypy 类型错误。
+- **类型安全**: 解决了 `LogContext`、`server.py` 和示例脚本中的 Mypy 类型错误。
 
 ## [0.6.1] - 2026-02-02
 

@@ -79,6 +79,6 @@ The module checks for `fastapi` and `uvicorn`. If missing, it provides helpful i
 
 ## Usage Scenarios
 
-- **Master Mode**: Triggered by running `mermaid-trace serve . --master`.
+- **Default Mode**: Launched by default when running `mermaid-trace serve`.
 - **Multiple File Preview**: Perfect for projects with multiple trace files that need quick switching.
 - **Large Diagrams**: Essential for navigating complex diagrams that exceed standard screen sizes.

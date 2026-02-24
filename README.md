@@ -239,7 +239,7 @@ chain.invoke({"input": "..."}, config={"callbacks": [handler]})
 - **Distributed Tracing**: Support for **W3C Trace Context**, **B3**, and custom headers to link microservices.
 - **Third-Party Patching**: Use `patch_object` to trace calls inside external libraries.
 - **Async Support**: Seamlessly works with `asyncio` coroutines and concurrency.
-- **Enhanced Web UI**: Interactive preview server with file browsing, auto-reload, and pan/zoom support (use `--master`).
+- **Enhanced Web UI**: Interactive preview server with file browsing, auto-reload, and pan/zoom support.
 - **Intelligent Collapsing**: Automatically collapses repetitive calls and identifies loops.
 - **FastAPI Integration**: Middleware for zero-config HTTP request tracing with header propagation.
 - **LangChain Integration**: Callback Handler for LLM chains and agent visualization.

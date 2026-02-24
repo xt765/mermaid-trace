@@ -290,6 +290,6 @@ def run_server(target: str, port: int = 8000, open_browser: bool = True) -> None
 
 ## 使用场景
 
-- **Master 模式**: 当你运行 `mermaid-trace serve . --master` 时，会启动此增强型服务器。
+- **默认模式**: 当你运行 `mermaid-trace serve` 时，默认启动此增强型服务器。
 - **多文件预览**: 适合在一个项目中同时跟踪多个模块，并希望在浏览器中快速切换查看。
 - **超大图表**: 对于普通的静态 HTML 难以查看的大型图表，此模块提供的缩放功能非常实用。

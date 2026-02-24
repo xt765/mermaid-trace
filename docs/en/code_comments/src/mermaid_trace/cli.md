@@ -1,111 +1,146 @@
 # CLI Command Line Interface Module (cli.py)
 
-`cli.py` is the entry point for the MermaidTrace command-line tools. It provides a local HTTP server to preview generated Mermaid sequence diagrams (.mmd files) in the browser with live-reload support.
+`cli.py` is the entry point for the MermaidTrace command-line tools. In version v0.7.0, it has been completely refactored to act as a lightweight dispatcher, delegating all Web server logic to the more robust `server.py` module.
 
 ## Core Features
 
-- **Local Preview Server**: Launches a lightweight HTTP server to render Mermaid files as web pages.
-- **Master Enhanced Mode**: Integrates FastAPI and SSE (Server-Sent Events) for an advanced preview interface with file browsing, pan/zoom, and instant updates.
-- **Live Preview & Auto-Reload**: Uses browser-side polling (Basic mode) or SSE (Master mode) to refresh the page automatically when file changes are detected.
-- **File Monitoring**: Integrates the `watchdog` library (optional) for efficient filesystem event monitoring.
-- **Embedded Rendering Engine**: Uses the Mermaid.js CDN to render diagrams on the client side, eliminating the need for complex local graphics libraries.
+- **Unified Entry Point**: Provides the `mermaid-trace serve` command, with no need to distinguish between modes.
+- **Smart Dependency Check**: Checks for optional dependencies like `fastapi` and `uvicorn` before starting the server, providing friendly installation instructions if missing.
+- **Argument Parsing**: Uses `argparse` to handle command-line arguments, supporting file path and port specification.
+- **Backward Compatibility**: Retains the `--master` argument (though no longer needed) to maintain compatibility with older scripts.
 
 ## Key Technical Design
 
-### 1. HTML Template & Mermaid.js Integration
+### 1. Lazy Import
 
-The module contains an `HTML_TEMPLATE` string that includes:
-- **Mermaid.js Loading**: Imports the library from a CDN.
-- **Auto-Reload Logic**: JavaScript `setInterval` calls the `/_status` endpoint every second to compare the file's modification time (mtime).
-- **Error Tolerance**: If file reading fails (e.g., file busy, permission denied, or deleted), the backend injects `mtime = "0"` and generates a Mermaid diagram containing the error message. This ensures the frontend remains stable and provides immediate feedback.
-
-### 2. Custom Request Handler Factory (`_create_handler`)
-
-A factory pattern is used to pass dynamic parameters (like filename and path) to the `socketserver`.
+To keep the CLI tool's startup lightweight, the `server` module (containing heavy FastAPI dependencies) is only imported when the user actually executes the `serve` command.
 
 ```python
-def _create_handler(filename: str, path: Path):
-    class Handler(http.server.SimpleHTTPRequestHandler):
-        def do_GET(self):
-            if self.path == "/":
-                # Render HTML template and inject content
-                ...
-            elif self.path == "/_status":
-                # Return the file's latest modification time (mtime)
-                ...
-    return Handler
+def serve(...):
+    try:
+        from .server import run_server
+        ...
 ```
 
-### 3. Hybrid Monitoring Mode
+### 2. Graceful Degradation & Error Messages
 
-- **Watchdog (Server-side)**: If `watchdog` is installed, file change logs are printed to the console in real-time.
-- **Polling (Client-side)**: The browser polls the `/_status` endpoint via Ajax. This is the core mechanism for auto-reload, working even without `watchdog`.
+If a user installs only the core library (`pip install mermaid-trace`) without server dependencies, the CLI catches the `ImportError` or checks the `HAS_SERVER_DEPS` flag and prints clear installation instructions:
+
+```text
+Error: The preview server requires additional dependencies.
+Please install them with:
+    pip install mermaid-trace[server]
+```
 
 ## Source Analysis
 
 ```python
-import argparse
-import http.server
-import socketserver
-from pathlib import Path
+"""
+Command Line Interface (CLI) Module - MermaidTrace.
 
-# Try to import watchdog for efficient monitoring
-try:
-    from watchdog.observers import Observer
-    from watchdog.events import FileSystemEventHandler
-    HAS_WATCHDOG = True
-except ImportError:
-    HAS_WATCHDOG = False
+This module serves as the entry point for the MermaidTrace command-line tool.
+It facilitates the preview of Mermaid diagram files (.mmd) via a local HTTP server,
+leveraging the robust FastAPI-based implementation in `server.py`.
 
-def serve(filename: str, port: int = 8000, master: bool = False) -> None:
+Usage:
+    Run this module directly or via the `mermaid-trace` command if installed.
+    Example: `mermaid-trace serve diagram.mmd --port 8080`
+"""
+
+import argparse  # Standard library for parsing command-line arguments
+import sys  # Used for system-specific parameters and functions (e.g., exit)
+
+
+def serve(target: str, port: int = 8000) -> None:
     """
-    Starts the local server.
-    1. If master mode is enabled, calls server.run_server.
-    2. Validates the file path.
-    3. Sets up Watchdog monitoring (optional).
-    4. Creates the HTTP handler.
-    5. Automatically opens the browser.
-    6. Enters the service loop.
-    """
-    if master:
-        # Try to start the enhanced server
-        try:
-            from .server import run_server, HAS_SERVER_DEPS
-            if HAS_SERVER_DEPS:
-                run_server(target_dir, port)
-                return
-        except ImportError:
-            pass
+    Starts a local HTTP server to preview Mermaid diagrams.
 
-    path = Path(filename)
-    # ... basic server setup ...
+    This function delegates the actual server logic to `mermaid_trace.server.run_server`.
+    It handles dependency checking and provides installation instructions if
+    required packages (fastapi, uvicorn) are missing.
+
+    Args:
+        target (str): Path to the .mmd file or directory to serve.
+        port (int): The port number to bind the server to (default: 8000).
+    """
+    try:
+        # Attempt to import the run function and dependency flag from the server module.
+        # Delayed import avoids loading heavy dependencies when server functionality is not needed.
+        from .server import run_server, HAS_SERVER_DEPS
+
+        # Check if server dependencies (fastapi, uvicorn, etc.) are installed
+        if HAS_SERVER_DEPS:
+            # Dependencies are present; launch the server.
+            run_server(target, port)
+        else:
+            # Dependencies are missing; print error and installation instructions.
+            # Note: While pip is suggested, modern Python workflows might use tools like uv.
+            print("Error: The preview server requires additional dependencies.")
+            print("Please install them with:")
+            print("    pip install mermaid-trace[server]")
+            print("Or manually:")
+            print("    pip install fastapi uvicorn")
+            sys.exit(1)  # Exit with a non-zero status code indicating error
+
+    except ImportError:
+        # Catch cases where importing the server module itself fails (e.g., corrupted files)
+        print("Error: Could not import server module.")
+        sys.exit(1)
+
 
 def main() -> None:
     """
-    CLI Command Parsing.
-    Uses argparse to define the 'serve' command and its arguments.
+    Main entry point for the CLI application.
+
+    Responsible for parsing command-line arguments and invoking the appropriate
+    function based on the subcommand provided.
     """
-    parser = argparse.ArgumentParser(description="MermaidTrace CLI - Preview Mermaid diagrams in browser")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-    
-    # Define the serve command
-    serve_parser = subparsers.add_parser("serve", help="Start the live preview server")
-    serve_parser.add_argument("file", help="Path to the .mmd file to preview")
-    serve_parser.add_argument("--port", type=int, default=8000, help="Server port")
-    serve_parser.add_argument("--master", action="store_true", help="Use enhanced preview (requires FastAPI)")
+    # Create the top-level argument parser
+    parser = argparse.ArgumentParser(
+        description="MermaidTrace CLI - Preview Mermaid diagrams in the browser"
+    )
 
+    # Create sub-parsers to handle different commands (e.g., 'serve')
+    # dest="command" stores the chosen subcommand name in args.command
+    subparsers = parser.add_subparsers(
+        dest="command", required=True, help="Available commands"
+    )
+
+    # --- 'serve' Command Definition ---
+    # Add 'serve' subcommand: starts the live preview server
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Serve a Mermaid file or directory in the browser with live reload",
+    )
+
+    # Add 'path' positional argument: the file or folder to preview
+    serve_parser.add_argument(
+        "path", help="Path to the .mmd file or directory to serve"
+    )
+
+    # Add '--port' optional argument: server listening port
+    serve_parser.add_argument(
+        "--port", type=int, default=8000, help="Port to bind to (default: 8000)"
+    )
+
+    # Add '--master' deprecated argument
+    # Kept for backward compatibility with older scripts, but ignored in code
+    serve_parser.add_argument(
+        "--master",
+        action="store_true",
+        help="Deprecated: Master mode is now the default.",
+    )
+
+    # Parse the command-line arguments
     args = parser.parse_args()
+
+    # Dispatch to the corresponding function based on the subcommand
     if args.command == "serve":
-        serve(args.file, args.port, args.master)
-```
+        # If 'serve' command is used, call the serve function
+        serve(args.path, args.port)
 
-## Usage Examples
 
-Run in the terminal:
-```bash
-# Basic preview
-mermaid-trace serve trace.mmd --port 8080
-
-# Master preview (directory browsing, pan/zoom)
-mermaid-trace serve . --master
+if __name__ == "__main__":
+    # Execute main function when script is run directly
+    main()
 ```
