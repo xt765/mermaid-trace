@@ -31,7 +31,7 @@ except ImportError:
         pass
 
     class MockApp:
-        def get(self, *args, **kwargs):
+        def get(self, *args: Any, **kwargs: Any) -> Any:
             return lambda f: f
 
     # 创建伪造的 FastAPI 类和对象，防止 NameError
