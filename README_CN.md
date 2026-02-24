@@ -262,11 +262,14 @@ chain.invoke({"input": "..."}, config={"callbacks": [handler]})
 
 - **装饰器驱动**：只需在函数上添加 `@trace` 或 `@trace_interaction` 即可。
 - **批量追踪**：使用 `@trace_class` 一次性追踪整个类的方法。
+- **数据安全**：内置**数据脱敏**功能，自动屏蔽密码、Token 等敏感字段。
+- **性能控制**：支持配置**采样率 (Sampling Rate)**，适应高并发场景。
+- **分布式追踪**：支持 **W3C Trace Context**、**B3** 等标准头，串联微服务调用链。
 - **第三方库追踪**：使用 `patch_object` 对外部库方法做 patch 并加入追踪。
 - **异步支持**：无缝支持 `asyncio` 协程与并发。
 - **增强型 Web UI**：交互式预览服务器，支持文件列表、自动刷新和缩放平移（使用 `--master`）。
 - **智能折叠**：自动折叠重复的高频调用和识别循环模式，防止图表过载。
-- **FastAPI 集成**：内置中间件，实现零配置的 HTTP 请求追踪。
+- **FastAPI 集成**：内置中间件，支持 HTTP 请求追踪及跨服务 Trace ID 传递。
 - **LangChain 集成**：提供 Callback Handler，可视化 LLM 链、Agent 工具调用及 RAG 检索路径。
 - **详细异常堆栈**：自动捕获完整的错误堆栈并在图表中显示。
 

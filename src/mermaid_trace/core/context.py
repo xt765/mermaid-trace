@@ -229,7 +229,7 @@ class LogContext:
         and sets it immediately. This ensures that:
         1. A trace ID is always available when asked for
         2. Once generated, the same ID persists for the duration of the context
-           (unless manually changed), linking all subsequent logs together
+        3. (unless manually changed), linking all subsequent logs together
 
         Returns:
             str: Unique trace ID for the current execution flow
@@ -246,3 +246,18 @@ class LogContext:
         Manually sets the trace ID (e.g., from an incoming HTTP request header).
         """
         cls.set("trace_id", trace_id)
+
+    @classmethod
+    def is_sampled(cls) -> bool:
+        """
+        Checks if the current trace is sampled.
+        Defaults to True if not set.
+        """
+        return bool(cls.get("is_sampled", True))
+
+    @classmethod
+    def set_sampled(cls, sampled: bool) -> None:
+        """
+        Sets the sampling status for the current trace.
+        """
+        cls.set("is_sampled", sampled)

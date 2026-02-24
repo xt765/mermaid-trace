@@ -7,6 +7,7 @@
   - [trace_class](#trace_class)
   - [patch_object](#patch_object)
   - [configure_flow](#configure_flow)
+  - [MermaidConfig](#mermaidconfig)
   - [LogContext](#logcontext)
   - [Event（抽象基类）](#event抽象基类)
   - [FlowEvent](#flowevent)
@@ -104,15 +105,37 @@ def configure_flow(
 - `config_overrides` (Optional[Dict[str, Any]]): 全局配置覆盖项（MermaidConfig 字段）。
 - `queue_size` (Optional[int]): 异步模式队列大小；优先于全局配置。
 
+### `MermaidConfig`
+
+全局配置设置。通过 `mermaid_trace.core.config.config` 访问。
+
+```python
+from mermaid_trace.core.config import config
+
+# 示例用法
+config.mask_patterns = ["password", "token"]
+config.sample_rate = 0.5
+```
+
+**属性：**
+- `mask_patterns` (List[str]): 敏感关键词列表。匹配这些关键词（不区分大小写）的参数/键将被脱敏。默认值：`["password", "secret", "token", "auth", "key", "cookie"]`。
+- `mask_value` (str): 脱敏后的占位符。默认值：`"******"`。
+- `sample_rate` (float): 记录 Trace 的概率 (0.0 - 1.0)。默认值：`1.0`。
+- `capture_args` (bool): 全局覆盖，是否捕获参数。默认值：`True`。
+- `max_string_length` (int): 日志中字符串的最大长度。默认值：`50`。
+- `max_arg_depth` (int): 嵌套对象的最大递归深度。默认值：`1`。
+
 ### `LogContext`
 
-管理执行上下文（类似线程本地存储），用于在异步任务和线程之间追踪调用方/被调用方关系和 Trace ID。
+线程安全（且异步安全）的执行流上下文管理器。
 
 **方法：**
-- `LogContext.current_trace_id() -> str`: 获取或生成当前的 Trace ID。
-- `LogContext.current_participant() -> str`: 获取当前活跃的参与者。
-- `LogContext.scope(data)`: 同步上下文管理器，用于临时更新上下文。
-- `LogContext.ascope(data)`: 异步上下文管理器 (`async with`)，用于临时更新上下文。
+- `current_trace_id() -> str`: 返回当前 Trace ID。如果不存在则生成一个。
+- `is_sampled() -> bool`: 返回当前 Trace 是否被采样（记录）。
+- `set_trace_id(trace_id: str)`: 手动设置 Trace ID（例如从 HTTP 头）。
+- `set_sampled(sampled: bool)`: 手动设置采样决策。
+- `scope(data: Dict[str, Any])`: 临时更新上下文的同步上下文管理器。
+- `ascope(data: Dict[str, Any])`: 临时更新上下文的异步上下文管理器。
 
 ### `Event`（抽象基类）
 

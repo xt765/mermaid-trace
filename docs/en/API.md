@@ -7,6 +7,7 @@
   - [trace_class](#trace_class)
   - [patch_object](#patch_object)
   - [configure_flow](#configure_flow)
+  - [MermaidConfig](#mermaidconfig)
   - [LogContext](#logcontext)
   - [Event (Abstract Base Class)](#event-abstract-base-class)
   - [FlowEvent](#flowevent)
@@ -104,15 +105,37 @@ def configure_flow(
 - `config_overrides` (Optional[Dict[str, Any]]): Overrides for global config keys (MermaidConfig fields).
 - `queue_size` (Optional[int]): Queue size for async mode; overrides config.
 
+### `MermaidConfig`
+
+Global configuration settings. Accessible via `mermaid_trace.core.config.config`.
+
+```python
+from mermaid_trace.core.config import config
+
+# Example Usage
+config.mask_patterns = ["password", "token"]
+config.sample_rate = 0.5
+```
+
+**Attributes:**
+- `mask_patterns` (List[str]): List of sensitive keywords. Arguments/keys matching these (case-insensitive) will be masked. Default: `["password", "secret", "token", "auth", "key", "cookie"]`.
+- `mask_value` (str): Placeholder for masked values. Default: `"******"`.
+- `sample_rate` (float): Probability (0.0 - 1.0) of tracing a request. Default: `1.0`.
+- `capture_args` (bool): Global override to capture/ignore arguments. Default: `True`.
+- `max_string_length` (int): Max string length in logs. Default: `50`.
+- `max_arg_depth` (int): Max recursion depth for nested objects. Default: `1`.
+
 ### `LogContext`
 
-Manages execution context (like thread-local storage) to track caller/callee relationships and trace IDs across async tasks and threads.
+Thread-safe (and async-safe) context manager for tracing execution flow.
 
 **Methods:**
-- `LogContext.current_trace_id() -> str`: Get or generate the current Trace ID.
-- `LogContext.current_participant() -> str`: Get the current active participant.
-- `LogContext.scope(data)`: Synchronous context manager to temporarily update context.
-- `LogContext.ascope(data)`: Asynchronous context manager (`async with`) to temporarily update context.
+- `current_trace_id() -> str`: Returns the current trace ID. Generates one if none exists.
+- `is_sampled() -> bool`: Returns whether the current trace is sampled (recorded).
+- `set_trace_id(trace_id: str)`: Manually sets the trace ID (e.g., from an HTTP header).
+- `set_sampled(sampled: bool)`: Manually sets the sampling decision.
+- `scope(data: Dict[str, Any])`: Context manager for temporary context updates.
+- `ascope(data: Dict[str, Any])`: Async context manager.
 
 ### `Event` (Abstract Base Class)
 

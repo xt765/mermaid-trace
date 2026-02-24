@@ -60,3 +60,19 @@ def test_participant_helpers() -> None:
     assert LogContext.current_participant() == "Unknown"
     LogContext.set_participant("ServiceA")
     assert LogContext.current_participant() == "ServiceA"
+
+
+def test_sampling_helpers() -> None:
+    # Default is True
+    assert LogContext.is_sampled() is True
+
+    LogContext.set_sampled(False)
+    assert LogContext.is_sampled() is False
+
+    LogContext.set_sampled(True)
+    assert LogContext.is_sampled() is True
+
+
+def test_manual_trace_id() -> None:
+    LogContext.set_trace_id("custom-id")
+    assert LogContext.current_trace_id() == "custom-id"

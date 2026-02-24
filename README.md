@@ -236,11 +236,14 @@ chain.invoke({"input": "..."}, config={"callbacks": [handler]})
 
 - **Decorator-Driven**: Simply add `@trace` or `@trace_interaction` to functions.
 - **Auto-Instrumentation**: Use `@trace_class` to trace a whole class at once.
+- **Data Privacy**: Automatic **Data Masking** for sensitive fields (passwords, tokens).
+- **Performance Control**: Configurable **Sampling Rate** for high-throughput systems.
+- **Distributed Tracing**: Support for **W3C Trace Context**, **B3**, and custom headers to link microservices.
 - **Third-Party Patching**: Use `patch_object` to trace calls inside external libraries.
 - **Async Support**: Seamlessly works with `asyncio` coroutines and concurrency.
 - **Enhanced Web UI**: Interactive preview server with file browsing, auto-reload, and pan/zoom support (use `--master`).
 - **Intelligent Collapsing**: Automatically collapses repetitive calls and identifies loops.
-- **FastAPI Integration**: Middleware for zero-config HTTP request tracing.
+- **FastAPI Integration**: Middleware for zero-config HTTP request tracing with header propagation.
 - **LangChain Integration**: Callback Handler for LLM chains and agent visualization.
 - **Detailed Exceptions**: Captures full stack traces for errors, displayed in the diagram.
 

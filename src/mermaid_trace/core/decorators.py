@@ -37,6 +37,8 @@ import inspect
 import re
 import reprlib
 import traceback
+import uuid
+import random
 from dataclasses import dataclass
 from typing import (
     Optional,
@@ -54,6 +56,7 @@ from typing import (
 from .events import FlowEvent
 from .context import LogContext
 from .config import config
+from .sanitizer import data_masker
 
 # Logger name for flow events - used to isolate tracing logs from other application logs.
 # This specific name is often used to configure a separate file handler in logging configs.
@@ -253,10 +256,15 @@ def _format_args(
     if not final_capture:
         return ""
 
+    # Mask sensitive data
+    safe_args = data_masker.mask(args)
+    safe_kwargs = data_masker.mask(kwargs)
+
     parts: list[str] = []
 
     # Process positional arguments
-    for arg in args:
+    # Note: safe_args is a list/tuple returned by mask
+    for arg in safe_args:
         parts.append(
             _safe_repr(
                 arg,
@@ -266,7 +274,8 @@ def _format_args(
         )
 
     # Process keyword arguments
-    for k, v in kwargs.items():
+    # Note: safe_kwargs is a dict
+    for k, v in safe_kwargs.items():
         val_str = _safe_repr(
             v, max_len=config_obj.max_arg_length, max_depth=config_obj.max_arg_depth
         )
@@ -402,8 +411,10 @@ def _log_return(
     )
 
     if final_capture:
+        # Mask sensitive data
+        safe_result = data_masker.mask(result)
         result_str = _safe_repr(
-            result,
+            safe_result,
             max_len=config_obj.max_arg_length,
             max_depth=config_obj.max_arg_depth,
         )
@@ -569,6 +580,14 @@ def _create_decorator(
     if action is None:
         action = func.__name__.replace("_", " ").title()
 
+    # Pre-calculate param names for positional arg masking
+    try:
+        sig = inspect.signature(func)
+        param_names = list(sig.parameters.keys())
+    except Exception:
+        # Fallback for built-ins or others without signature
+        param_names = []
+
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         """
@@ -576,18 +595,54 @@ def _create_decorator(
         Executes tracing logic around a standard blocking function call.
         """
         # 1. Resolve Context
-        # 'current_source' is who called us. If not explicit, we get it from thread-local storage.
         current_source = source or LogContext.current_participant()
-        trace_id = LogContext.current_trace_id()
 
-        # 'current_target' is who we are. We figure this out from 'self', 'cls', or module name.
+        # Sampling Logic
+        trace_id = LogContext.get("trace_id")
+        is_root = trace_id is None
+
+        if is_root:
+            trace_id = str(uuid.uuid4())
+            # Root span: Decide sampling based on config
+            if config.sample_rate < 1.0:
+                is_sampled = random.random() < config.sample_rate
+            else:
+                is_sampled = True
+        else:
+            # Child span: Inherit sampling decision
+            is_sampled = LogContext.is_sampled()
+
         current_target = _resolve_target(func, args, target)
+
+        # If not sampled, skip logging but propagate context (so children also skip)
+        if not is_sampled:
+            with LogContext.scope(
+                {
+                    "participant": current_target,
+                    "trace_id": trace_id,
+                    "is_sampled": False,
+                }
+            ):
+                return func(*args, **kwargs)
 
         meta = _TraceMetadata(current_source, current_target, action, trace_id)
 
         logger = get_flow_logger()
+
+        # Mask sensitive positional args based on parameter names
+        # We need a copy of args since tuple is immutable
+        safe_args = list(args)
+        if (
+            config_obj.capture_args is not False
+        ):  # Only check if not explicitly disabled
+            for i, arg in enumerate(args):
+                if i < len(param_names):
+                    p_name = param_names[i]
+                    if data_masker._is_sensitive(p_name):
+                        safe_args[i] = config.mask_value
+
         # Format arguments for the diagram arrow label
-        params_str = _format_args(args, kwargs, config_obj)
+        params_str = _format_args(tuple(safe_args), kwargs, config_obj)
 
         # 2. Log Request (Start of function)
         # Emits the "Call" arrow (Source -> Target)
@@ -596,7 +651,9 @@ def _create_decorator(
         # 3. Execute with New Context
         # We push 'current_target' as the NEW 'participant' (source) for any internal calls made by this function.
         # This builds the chain: A calls B (A->B), then B calls C (B->C).
-        with LogContext.scope({"participant": current_target, "trace_id": trace_id}):
+        with LogContext.scope(
+            {"participant": current_target, "trace_id": trace_id, "is_sampled": True}
+        ):
             try:
                 # Execute the actual user function
                 result = func(*args, **kwargs)
@@ -628,13 +685,49 @@ def _create_decorator(
         """
         # 1. Resolve Context (Same as sync)
         current_source = source or LogContext.current_participant()
-        trace_id = LogContext.current_trace_id()
+
+        # Sampling Logic
+        trace_id = LogContext.get("trace_id")
+        is_root = trace_id is None
+
+        if is_root:
+            trace_id = str(uuid.uuid4())
+            # Root span: Decide sampling based on config
+            if config.sample_rate < 1.0:
+                is_sampled = random.random() < config.sample_rate
+            else:
+                is_sampled = True
+        else:
+            # Child span: Inherit sampling decision
+            is_sampled = LogContext.is_sampled()
+
         current_target = _resolve_target(func, args, target)
+
+        # If not sampled, skip logging but propagate context
+        if not is_sampled:
+            async with LogContext.ascope(
+                {
+                    "participant": current_target,
+                    "trace_id": trace_id,
+                    "is_sampled": False,
+                }
+            ):
+                return await func(*args, **kwargs)
 
         meta = _TraceMetadata(current_source, current_target, action, trace_id)
 
         logger = get_flow_logger()
-        params_str = _format_args(args, kwargs, config_obj)
+
+        # Mask sensitive positional args
+        safe_args = list(args)
+        if config_obj.capture_args is not False:
+            for i, arg in enumerate(args):
+                if i < len(param_names):
+                    p_name = param_names[i]
+                    if data_masker._is_sensitive(p_name):
+                        safe_args[i] = config.mask_value
+
+        params_str = _format_args(tuple(safe_args), kwargs, config_obj)
 
         # 2. Log Request
         _log_interaction(logger, meta, params_str)
@@ -643,7 +736,7 @@ def _create_decorator(
         # Crucial difference for Async: We use `ascope` (async scope) which uses contextvars.
         # This ensures the context is preserved across `await` points where the event loop might switch tasks.
         async with LogContext.ascope(
-            {"participant": current_target, "trace_id": trace_id}
+            {"participant": current_target, "trace_id": trace_id, "is_sampled": True}
         ):
             try:
                 # Await the actual user coroutine

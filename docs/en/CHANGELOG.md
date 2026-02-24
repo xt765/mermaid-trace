@@ -7,8 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-02-24
+
 ### Added
-- **Python 3.14 Support**: Officially added Python 3.14 to project classifiers, CI workflows, and tox configuration after successful testing on Python 3.14.2.
+- **Data Privacy**: Introduced `DataMasker` to automatically sanitize sensitive fields (e.g., `password`, `token`) in function arguments, return values, and dictionaries. Configurable via `config.mask_patterns`.
+- **Sampling Strategy**: Added `config.sample_rate` to control the percentage of traces recorded, reducing overhead in high-throughput production environments.
+- **Distributed Tracing**: Enhanced `FastAPI` middleware to support **W3C Trace Context**, **B3**, and custom `X-Trace-ID` headers, enabling cross-service trace propagation.
+- **Context Management**: Added `is_sampled` state to `LogContext` to efficiently propagate sampling decisions across async call chains.
+
+### Improved
+- **Test Suite**: Comprehensive update of the test suite, achieving **>90% coverage** with new tests for sanitization, sampling, and distributed tracing scenarios.
+- **Documentation**: Updated READMEs and examples to showcase data masking and sampling features.
+
+### Fixed
+- **Type Safety**: Resolved Mypy errors in `LogContext` and example scripts.
 
 ## [0.6.1] - 2026-02-02
 

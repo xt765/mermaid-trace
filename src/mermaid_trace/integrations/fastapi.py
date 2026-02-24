@@ -7,7 +7,7 @@ sequence diagram generation logic.
 
 Key functionalities include:
 - Middleware for intercepting all incoming HTTP requests.
-- Automatic extraction of tracing headers (X-Source, X-Trace-ID).
+- Automatic extraction of tracing headers (X-Source, X-Trace-ID, traceparent).
 - Initialization of logging context for request lifecycles.
 - Automatic logging of request start and response completion (success or error).
 """
@@ -16,10 +16,13 @@ from typing import Any, TYPE_CHECKING
 import time
 import uuid
 import traceback
+import random
 
 from ..core.events import FlowEvent
 from ..core.context import LogContext
 from ..core.decorators import get_flow_logger
+from ..core.config import config
+from ..core.sanitizer import data_masker
 
 # Conditional imports to support optional FastAPI dependency
 if TYPE_CHECKING:
@@ -116,16 +119,61 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
         # ----------------------------------------------------------------------
 
         # Determine the source participant (Who is calling us?).
-        # If the request comes from another service traced by MermaidTrace,
-        # it might include the 'X-Source' header.
         source = request.headers.get("X-Source", "Client")
 
         # Determine the unique Trace ID.
-        # This ID is critical for grouping all logs related to a single request flow.
-        trace_id = request.headers.get("X-Trace-ID") or str(uuid.uuid4())
+        trace_id = request.headers.get("X-Trace-ID")
+        is_new_trace = False
+
+        if not trace_id:
+            # Try traceparent (W3C) - version-traceid-parentid-flags
+            # Example: 00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01
+            traceparent = request.headers.get("traceparent")
+            if traceparent:
+                parts = traceparent.split("-")
+                if len(parts) >= 2:
+                    trace_id = parts[1]
+
+        if not trace_id:
+            # Try b3 (Zipkin) - traceid-spanid-sampled-parentspanid
+            # Example: 80f198ee56343ba864fe8b2a57d3eff7-e457b5a2e4d86bd1-1-05e3ac9a4f6e3b90
+            b3 = request.headers.get("b3")
+            if b3:
+                # Single header format
+                if "-" in b3:
+                    trace_id = b3.split("-")[0]
+                else:
+                    trace_id = b3
+            else:
+                # Separate header format
+                trace_id = request.headers.get("X-B3-TraceId")
+
+        if not trace_id:
+            trace_id = str(uuid.uuid4())
+            is_new_trace = True
+
+        # Sampling Decision
+        if is_new_trace:
+            if config.sample_rate < 1.0:
+                is_sampled = random.random() < config.sample_rate
+            else:
+                is_sampled = True
+        else:
+            # Inherited trace, default to sampled unless we parse flags
+            is_sampled = True
+
+        # If not sampled, skip logging but propagate context
+        if not is_sampled:
+            async with LogContext.ascope(
+                {
+                    "participant": self.app_name,
+                    "trace_id": trace_id,
+                    "is_sampled": False,
+                }
+            ):
+                return await call_next(request)
 
         # Define the action name for the diagram arrow.
-        # Format: "METHOD /path" (e.g., "GET /api/v1/users")
         action = f"{request.method} {request.url.path}"
 
         # Get the configured logger for flow events.
@@ -135,6 +183,12 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
         # 2. Log Request Start (Source -> App)
         # ----------------------------------------------------------------------
 
+        # Mask sensitive query params
+        params_str = None
+        if request.query_params:
+            safe_params = data_masker.mask(dict(request.query_params))
+            params_str = f"query={safe_params}"
+
         # Create the 'Request' event representing the call coming into this service.
         req_event = FlowEvent(
             source=source,
@@ -142,7 +196,7 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
             action=action,
             message=action,
             # Include query parameters in the note if they exist.
-            params=f"query={request.query_params}" if request.query_params else None,
+            params=params_str,
             trace_id=trace_id,
         )
 
@@ -156,10 +210,8 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
         # ----------------------------------------------------------------------
 
         # Initialize the LogContext for this async task.
-        # Any 'traced' function called within this block will inherit 'trace_id'
-        # and see 'participant' as self.app_name.
         async with LogContext.ascope(
-            {"participant": self.app_name, "trace_id": trace_id}
+            {"participant": self.app_name, "trace_id": trace_id, "is_sampled": True}
         ):
             start_time = time.time()
             try:
@@ -200,7 +252,6 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
                 )
 
                 # If an unhandled exception occurs, log it as an error event.
-                # This will render as a cross (X) on the sequence diagram return arrow.
                 err_event = FlowEvent(
                     source=self.app_name,
                     target=source,
@@ -217,5 +268,4 @@ class MermaidTraceMiddleware(BaseHTTPMiddleware):
                 )
 
                 # Re-raise the exception so FastAPI's exception handlers can take over.
-                # We strictly monitor the flow here, not swallow errors.
                 raise

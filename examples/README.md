@@ -6,8 +6,8 @@
 
 ### 1. 基础用法 (Basic Usage)
 - **文件**: `01_basic_usage.py`
-- **核心功能**: `@trace` 装饰器、上下文自动传播、类方法追踪。
-- **描述**: 演示了如何手动使用装饰器来追踪同步代码流。展示了 WebApp、AuthService 和 Database 之间的典型交互。
+- **核心功能**: `@trace` 装饰器、上下文自动传播、类方法追踪、**数据脱敏**。
+- **描述**: 演示了如何手动使用装饰器来追踪同步代码流。展示了 WebApp、AuthService 和 Database 之间的典型交互，以及如何自动屏蔽敏感参数（如密码）。
 - **运行命令**: `python examples/01_basic_usage.py`
 
 ### 2. 高级自动化插桩 (Advanced Instrumentation)
@@ -39,8 +39,8 @@
 
 ### 6. FastAPI 集成 (FastAPI Integration)
 - **文件**: `06_fastapi_integration.py`
-- **核心功能**: `MermaidTraceMiddleware`、全链路追踪。
-- **描述**: 展示了在 Web 框架中实现零侵入追踪。通过中间件自动捕获所有进入系统的 HTTP 请求，并与内部业务逻辑追踪串联。
+- **核心功能**: `MermaidTraceMiddleware`、**全链路分布式追踪**、**采样控制**。
+- **描述**: 展示了在 Web 框架中实现零侵入追踪。自动捕获 HTTP 请求、支持跨服务 Trace ID 传递（Header 注入），以及如何配置采样率以降低生产环境开销。
 - **依赖**: `pip install fastapi uvicorn`
 - **运行命令**: `python examples/06_fastapi_integration.py`
 

@@ -97,16 +97,41 @@ def test_query_params_logging(caplog: Any) -> None:
     records = [r for r in caplog.records if hasattr(r, "flow_event")]
     req = records[0].flow_event
     # Middleware captures query params in params field
-    assert "q=search" in req.params
+    # Format is "query={'key': 'value'}"
+    assert "'q': 'search'" in req.params
 
 
 def test_trace_id_header(caplog: Any) -> None:
+    # Test X-Trace-ID
     caplog.clear()
     tid = "custom-trace-1"
     client.get("/async-ok", headers={"X-Trace-ID": tid})
-
     records = [r for r in caplog.records if hasattr(r, "flow_event")]
     assert records[0].flow_event.trace_id == tid
+
+    # Test traceparent (W3C)
+    caplog.clear()
+    # version-traceid-parentid-flags
+    w3c_tid = "4bf92f3577b34da6a3ce929d0e0e4736"
+    traceparent = f"00-{w3c_tid}-00f067aa0ba902b7-01"
+    client.get("/async-ok", headers={"traceparent": traceparent})
+    records = [r for r in caplog.records if hasattr(r, "flow_event")]
+    assert records[0].flow_event.trace_id == w3c_tid
+
+    # Test b3 single header
+    caplog.clear()
+    b3_tid = "80f198ee56343ba864fe8b2a57d3eff7"
+    b3_header = f"{b3_tid}-e457b5a2e4d86bd1-1"
+    client.get("/async-ok", headers={"b3": b3_header})
+    records = [r for r in caplog.records if hasattr(r, "flow_event")]
+    assert records[0].flow_event.trace_id == b3_tid
+
+    # Test b3 separate headers
+    caplog.clear()
+    b3_tid_sep = "a0f198ee56343ba864fe8b2a57d3eff8"
+    client.get("/async-ok", headers={"X-B3-TraceId": b3_tid_sep})
+    records = [r for r in caplog.records if hasattr(r, "flow_event")]
+    assert records[0].flow_event.trace_id == b3_tid_sep
 
 
 def test_fastapi_error(caplog: Any) -> None:

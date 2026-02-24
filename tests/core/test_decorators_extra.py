@@ -32,23 +32,23 @@ def test_format_args_keyword():
     # This test covers lines 101-102: keyword argument formatting
     result = _format_args(
         args=(),
-        kwargs={"key1": "value1", "key2": 123},
+        kwargs={"arg1": "value1", "arg2": 123},
         config_obj=_TraceConfig(max_arg_length=50, max_arg_depth=1),
     )
-    assert "key1='value1'" in result
-    assert "key2=123" in result
+    assert "arg1='value1'" in result
+    assert "arg2=123" in result
 
 
 def test_format_args_combined():
     """Test that _format_args handles combined positional and keyword arguments"""
     result = _format_args(
         args=("pos1", 123),
-        kwargs={"key1": "value1"},
+        kwargs={"arg1": "value1"},
         config_obj=_TraceConfig(max_arg_length=50, max_arg_depth=1),
     )
     assert "pos1" in result
     assert "123" in result
-    assert "key1='value1'" in result
+    assert "arg1='value1'" in result
 
 
 def test_resolve_target_fallback():
