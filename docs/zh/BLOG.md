@@ -94,6 +94,23 @@ flowchart TB
 
 ---
 
+## 强大的 Web 预览界面
+
+MermaidTrace 内置了一个功能强大的 Web 预览服务器，让你可以直观地查看生成的时序图：
+
+![Web Preview UI](../images/web_preview_ui.png)
+
+**主要特性**：
+
+- 🌐 **实时预览**：代码运行后，浏览器自动刷新，图表即时更新
+- 📁 **多文件支持**：可以同时管理多个 .mmd 文件
+- 🔍 **缩放平移**：支持鼠标滚轮缩放和拖拽平移
+- 💾 **一键导出**：支持将图表导出为 SVG 格式
+- 📱 **响应式布局**：完美适配各种屏幕尺寸
+- 🚀 **完全离线**：无需网络连接，静态资源本地化
+
+---
+
 ## 快速上手：三步开始
 
 ### 1. 安装
@@ -360,8 +377,6 @@ flowchart LR
 ---
 
 ## 与 LangChain 的集成
-
-![Master Preview](../images/master_preview.png)
 
 MermaidTrace 提供了 LangChain 的专用处理器：
 
