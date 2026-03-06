@@ -98,7 +98,7 @@ flowchart TB
 
 MermaidTrace 内置了一个功能强大的 Web 预览服务器，让你可以直观地查看生成的时序图：
 
-![Web Preview UI](../images/web_preview_ui.png)
+![Master Preview](../images/master_preview.png)
 
 **主要特性**：
 
@@ -154,7 +154,7 @@ mermaid-trace serve flow.mmd
 
 这会启动一个本地服务器，自动打开浏览器，展示生成的时序图：
 
-![Web Preview UI](../images/web_preview_ui.png)
+![Master Preview](../images/master_preview.png)
 
 ```mermaid
 sequenceDiagram
@@ -377,6 +377,8 @@ flowchart LR
 ---
 
 ## 与 LangChain 的集成
+
+![Master Preview](../images/master_preview.png)
 
 MermaidTrace 提供了 LangChain 的专用处理器：
 
