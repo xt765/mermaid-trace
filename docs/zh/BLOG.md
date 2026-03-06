@@ -14,6 +14,14 @@
 
 ---
 
+<p align="center">
+  <img src="../images/logo.png" alt="MermaidTrace Logo" width="600">
+</p>
+
+<p align="center"><strong>让复杂的调用链一目了然。一行代码，将复杂的执行逻辑转化为清晰的 Mermaid 时序图。</strong></p>
+
+---
+
 ### **关于作者**
 
 - **深耕领域**：大语言模型开发 / RAG 知识库 / AI Agent 落地 / 模型微调
