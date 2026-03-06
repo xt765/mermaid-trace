@@ -14,25 +14,14 @@
 
 ---
 
+# 【开源发布】MermaidTrace: 让你的 Python 代码逻辑"看"得见
+
 <p align="center">
   <img src="../images/logo.png" alt="MermaidTrace Logo" width="600">
 </p>
 
-<p align="center"><strong>让复杂的调用链一目了然。一行代码，将复杂的执行逻辑转化为清晰的 Mermaid 时序图。</strong></p>
-
 ---
 
-### **关于作者**
-
-- **深耕领域**：大语言模型开发 / RAG 知识库 / AI Agent 落地 / 模型微调
-- **技术栈**：Python | RAG (LangChain / Dify + Milvus) | FastAPI + Docker
-- **工程能力**：专注模型工程化部署、知识库构建与优化，擅长全流程解决方案
-
-> **「让 AI 交互更智能，让技术落地更高效」**
-> 欢迎技术探讨与项目合作，解锁大模型与智能交互的无限可能！
-
----
-# 【开源发布】MermaidTrace v0.7.1：让你的 Python 代码"画"出日志！
 ## 当你在凌晨两点调试递归调用时
 
 你接手了一个遗留项目，代码结构复杂，函数层层嵌套。你打开日志文件，看到的是这样的输出：
@@ -58,7 +47,7 @@ flowchart LR
     A[添加装饰器] --> B[运行代码]
     B --> C[自动生成时序图]
     C --> D[实时预览]
-    
+
     style C fill:#e8f5e9
 ```
 
@@ -78,20 +67,20 @@ flowchart TB
     subgraph 输入[你的代码]
         A[Python 函数]
     end
-    
+
     subgraph MermaidTrace[处理过程]
         B[装饰器拦截] --> C[记录调用事件]
         C --> D[构建调用链]
         D --> E[生成 Mermaid 语法]
     end
-    
+
     subgraph 输出[可视化结果]
         E --> F[时序图]
         E --> G[交互式预览]
     end
-    
+
     A --> B
-    
+
     style B fill:#e3f2fd
     style F fill:#fff3e0
 ```
@@ -135,16 +124,16 @@ from mermaid_trace import trace, trace_class
 @trace_class
 class OrderService:
     """订单服务类"""
-    
+
     def process_order(self, order_id: int) -> dict:
         """处理订单"""
         self.validate_order(order_id)
         return self.create_order(order_id)
-    
+
     def validate_order(self, order_id: int) -> bool:
         """验证订单"""
         return order_id > 0
-    
+
     def create_order(self, order_id: int) -> dict:
         """创建订单"""
         return {"order_id": order_id, "status": "created"}
@@ -170,7 +159,7 @@ sequenceDiagram
     participant OrderService
     participant validate_order
     participant create_order
-    
+
     Caller->>OrderService: process_order
     OrderService->>validate_order: validate_order
     validate_order-->>OrderService: True
@@ -194,25 +183,25 @@ from typing import List
 @trace
 class RAGPipeline:
     """RAG 检索管道"""
-    
+
     def __init__(self):
         self.retriever = VectorRetriever()
         self.reranker = Reranker()
         self.context_builder = ContextBuilder()
-    
+
     async def query(self, question: str) -> dict:
         # 查询改写
         refined_query = await self.refine_query(question)
-        
+
         # 向量检索
         documents = await self.retriever.search(refined_query)
-        
+
         # 重排序
         ranked_docs = await self.reranker.rerank(documents, question)
-        
+
         # 构建上下文
         context = self.context_builder.build(ranked_docs)
-        
+
         return {"query": question, "context": context}
 ```
 
@@ -225,7 +214,7 @@ sequenceDiagram
     participant VectorRetriever
     participant Reranker
     participant ContextBuilder
-    
+
     main->>RAGPipeline: query
     RAGPipeline->>RAGPipeline: refine_query
     RAGPipeline->>VectorRetriever: search
@@ -247,10 +236,10 @@ from mermaid_trace import trace_class
 @trace_class
 class LLMAgent:
     """LLM Agent"""
-    
+
     def __init__(self):
         self.tools = {"search": self.search, "calculator": self.calculator}
-    
+
     async def run(self, query: str) -> str:
         for i in range(3):
             action = await self.decide(query)
@@ -268,7 +257,7 @@ sequenceDiagram
     participant LLMAgent
     participant search
     participant calculator
-    
+
     main->>LLMAgent: run
     LLMAgent->>LLMAgent: decide
     LLMAgent-->>LLMAgent: {tool: search}
@@ -297,7 +286,7 @@ app = FastAPI()
 class DatabaseService:
     async def get_user(self, user_id: int) -> dict:
         return {"id": user_id, "name": f"User{user_id}"}
-    
+
     async def get_orders(self, user_id: int) -> list:
         return [{"id": i} for i in range(3)]
 
@@ -374,7 +363,7 @@ flowchart LR
     A[代码变更] --> B[自动重新运行]
     B --> C[生成新时序图]
     C --> D[浏览器自动刷新]
-    
+
     style D fill:#fff3e0
 ```
 
