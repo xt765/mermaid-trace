@@ -137,6 +137,8 @@ mermaid-trace serve flow.mmd
 
 这会启动一个本地服务器，自动打开浏览器，展示生成的时序图：
 
+![Web Preview UI](../images/web_preview_ui.png)
+
 ```mermaid
 sequenceDiagram
     participant Caller
@@ -358,6 +360,8 @@ flowchart LR
 ---
 
 ## 与 LangChain 的集成
+
+![Master Preview](../images/master_preview.png)
 
 MermaidTrace 提供了 LangChain 的专用处理器：
 
