@@ -32,32 +32,26 @@ classifiers = [
 dependencies = [
     "typing-extensions>=4.0.0",
     "watchdog>=2.0.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
 ]
 
 [project.optional-dependencies]
-server = [
-    "fastapi>=0.100.0",
-    "uvicorn>=0.20.0",
-]
-fastapi = [
-    "fastapi>=0.100.0",
-    "uvicorn>=0.20.0",
-]
 langchain = [
     "langchain-core>=0.1.0",
 ]
 all = [
-    "mermaid-trace[fastapi]",
     "mermaid-trace[langchain]",
 ]
 dev = [
     "mermaid-trace[all]",
-    "pytest",
-    "pytest-asyncio",
-    "pytest-cov",
-    "ruff",
-    "mypy",
-    "httpx",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "basedpyright>=0.1.0",
+    "httpx>=0.24.0",
 ]
 
 [project.urls]
@@ -78,7 +72,7 @@ version_scheme = "post-release"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mermaid_trace"]
-artifacts = ["*.typed", "*.mmd"]
+artifacts = ["*.typed", "*.mmd", "src/mermaid_trace/static/*"]
 
 [tool.hatch.build.targets.sdist]
 exclude = [

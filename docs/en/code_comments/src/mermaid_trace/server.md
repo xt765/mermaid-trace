@@ -5,6 +5,7 @@
 ## Core Features
 
 - **Real-time Updates (SSE)**: Uses Server-Sent Events instead of traditional polling. Updates are pushed from the server to the browser instantly when file changes are detected.
+- **Offline Support**: All static resources (Tailwind CSS, Mermaid.js, svg-pan-zoom) are bundled locally. No network connection required.
 - **File List Management**: Automatically scans for all `.mmd` files in the specified directory and provides a sidebar for quick switching.
 - **Interactive UI**:
     - **Pan & Zoom**: Integrates the `svg-pan-zoom` library, allowing users to navigate large and complex diagrams with ease.
@@ -14,7 +15,24 @@
 
 ## Key Design Patterns
 
-### 1. Connection Management (`ConnectionManager`)
+### 1. Static File Serving
+
+Starting from v0.7.1, the server serves static resources (CSS, JavaScript) locally instead of from external CDNs. This ensures the preview works completely offline.
+
+```python
+STATIC_DIR = Path(__file__).parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+```
+
+The HTML template references these local resources:
+```html
+<script src="/static/mermaid.min.js"></script>
+<script src="/static/svg-pan-zoom.min.js"></script>
+<link href="/static/tailwind.min.css" rel="stylesheet">
+```
+
+### 2. Connection Management (`ConnectionManager`)
 
 To support multiple simultaneous browser previews, the module implements a simple Pub/Sub pattern.
 

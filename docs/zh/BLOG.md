@@ -145,7 +145,7 @@ AI Agent 的决策路径往往是不确定的。通过 `MermaidTraceCallbackHand
 
 #### **1. 安装**
 ```bash
-pip install mermaid-trace[server]
+pip install mermaid-trace
 ```
 
 #### **2. 编码**

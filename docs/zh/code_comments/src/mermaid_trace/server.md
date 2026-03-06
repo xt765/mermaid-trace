@@ -4,7 +4,8 @@
 
 ## 核心功能
 
-- **实时更新 (SSE)**: 使用服务器发送事件（Server-Sent Events）代替传统的轮询机制。一旦服务器检测到文件变化，会立即向浏览器推送更新通知，实现真正的“零延迟”刷新。
+- **实时更新 (SSE)**: 使用服务器发送事件（Server-Sent Events）代替传统的轮询机制。一旦服务器检测到文件变化，会立即向浏览器推送更新通知，实现真正的"零延迟"刷新。
+- **离线支持**: 所有静态资源（Tailwind CSS、Mermaid.js、svg-pan-zoom）均已打包到本地。无需网络连接即可使用。
 - **文件列表管理**: 自动扫描指定目录下的所有 `.mmd` 文件，并在侧边栏提供快速切换功能。
 - **交互式 UI**:
     - **缩放与平移**: 集成 `svg-pan-zoom` 库，支持通过鼠标滚轮或拖拽来查看大型复杂的时序图。
@@ -14,7 +15,24 @@
 
 ## 关键技术设计
 
-### 1. 连接管理器 (`ConnectionManager`)
+### 1. 静态文件服务
+
+从 v0.7.1 开始，服务器使用本地静态资源（CSS、JavaScript）而不是外部 CDN。这确保预览功能完全离线可用。
+
+```python
+STATIC_DIR = Path(__file__).parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+```
+
+HTML 模板引用这些本地资源：
+```html
+<script src="/static/mermaid.min.js"></script>
+<script src="/static/svg-pan-zoom.min.js"></script>
+<link href="/static/tailwind.min.css" rel="stylesheet">
+```
+
+### 2. 连接管理器 (`ConnectionManager`)
 
 为了支持多个浏览器窗口同时预览，模块实现了一个简单的发布-订阅模式。
 

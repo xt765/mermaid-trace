@@ -1,53 +1,48 @@
 """
 Command Line Interface (CLI) Module - MermaidTrace.
 
-This module serves as the entry point for the MermaidTrace command-line tool.
-It facilitates the preview of Mermaid diagram files (.mmd) via a local HTTP server,
-leveraging the robust FastAPI-based implementation in `server.py`.
-
-Usage:
-    Run this module directly or via the `mermaid-trace` command if installed.
-    Example: `mermaid-trace serve diagram.mmd --port 8080`
+This module provides the command-line interface for MermaidTrace,
+enabling users to preview Mermaid diagram files through a local web server.
 """
 
-import argparse  # Standard library for parsing command-line arguments
-import sys  # Used for system-specific parameters and functions (e.g., exit)
+import argparse
+import sys
+from importlib.metadata import PackageNotFoundError, version as get_version
 
 
-def serve(target: str, port: int = 8000) -> None:
+def get_package_version() -> str:
     """
-    Starts a local HTTP server to preview Mermaid diagrams.
+    Get the installed package version.
 
-    This function delegates the actual server logic to `mermaid_trace.server.run_server`.
-    It handles dependency checking and provides installation instructions if
-    required packages (fastapi, uvicorn) are missing.
-
-    Args:
-        target (str): Path to the .mmd file or directory to serve.
-        port (int): The port number to bind the server to (default: 8000).
+    Returns:
+        str: Version string, e.g., "0.7.1"
     """
     try:
-        # Attempt to import the run function and dependency flag from the server module.
-        # Delayed import avoids loading heavy dependencies when server functionality is not needed.
-        from .server import run_server, HAS_SERVER_DEPS
+        return get_version("mermaid-trace")
+    except PackageNotFoundError:
+        return "0.0.0 (development)"
 
-        # Check if server dependencies (fastapi, uvicorn, etc.) are installed
-        if HAS_SERVER_DEPS:
-            # Dependencies are present; launch the server.
-            run_server(target, port)
-        else:
-            # Dependencies are missing; print error and installation instructions.
-            # Note: While pip is suggested, modern Python workflows might use tools like uv.
-            print("Error: The preview server requires additional dependencies.")
-            print("Please install them with:")
-            print("    pip install mermaid-trace[server]")
-            print("Or manually:")
-            print("    pip install fastapi uvicorn")
-            sys.exit(1)  # Exit with a non-zero status code indicating error
+
+def serve(target: str, port: int = 8000, open_browser: bool = True) -> None:
+    """
+    Start a local HTTP server to preview Mermaid diagrams.
+
+    This function delegates the actual server logic to `mermaid_trace.server.run_server`.
+
+    Args:
+        target: Path to the .mmd file or directory to serve.
+        port: The port number to bind the server to (default: 8000).
+        open_browser: Whether to automatically open the browser (default: True).
+    """
+    try:
+        from .server import run_server
+
+        run_server(target, port, open_browser)
 
     except ImportError:
-        # Catch cases where importing the server module itself fails (e.g., corrupted files)
         print("Error: Could not import server module.")
+        print("Please ensure mermaid-trace is installed correctly:")
+        print("    pip install mermaid-trace")
         sys.exit(1)
 
 
@@ -55,54 +50,88 @@ def main() -> None:
     """
     Main entry point for the CLI application.
 
-    Responsible for parsing command-line arguments and invoking the appropriate
-    function based on the subcommand provided.
+    Parses command-line arguments and invokes the appropriate function
+    based on the provided subcommand.
     """
-    # Create the top-level argument parser
     parser = argparse.ArgumentParser(
-        description="MermaidTrace CLI - Preview Mermaid diagrams in the browser"
+        prog="mermaid-trace",
+        description=(
+            "MermaidTrace - Visualize Python execution flow as Mermaid sequence diagrams.\n\n"
+            "This tool helps you understand complex code execution by automatically\n"
+            "tracing function calls and generating interactive sequence diagrams.\n\n"
+            "Use 'mermaid-trace <command> --help' for detailed command information."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  mermaid-trace serve flow.mmd              # Preview a single diagram file\n"
+            "  mermaid-trace serve ./diagrams            # Preview all .mmd files in directory\n"
+            "  mermaid-trace serve flow.mmd --port 3000  # Use custom port\n"
+            "  mermaid-trace serve flow.mmd --no-browser # Don't auto-open browser\n"
+            "  mermaid-trace version                     # Show version information\n\n"
+            "Documentation: https://github.com/xt765/mermaid-trace\n"
+            "Bug Reports: https://github.com/xt765/mermaid-trace/issues"
+        ),
     )
 
-    # Create sub-parsers to handle different commands (e.g., 'serve')
-    # dest="command" stores the chosen subcommand name in args.command
     subparsers = parser.add_subparsers(
-        dest="command", required=True, help="Available commands"
+        dest="command",
+        required=True,
+        title="available commands",
+        metavar="<command>",
     )
 
-    # --- 'serve' Command Definition ---
-    # Add 'serve' subcommand: starts the live preview server
+    # Version command
+    subparsers.add_parser(
+        "version",
+        help="Display version information",
+        description="Show the installed version of MermaidTrace.",
+    )
+
+    # Serve command
     serve_parser = subparsers.add_parser(
         "serve",
-        help="Serve a Mermaid file or directory in the browser with live reload",
+        help="Start live preview server for Mermaid diagrams",
+        description=(
+            "Start a local HTTP server to preview Mermaid diagram files with live reload.\n\n"
+            "Features:\n"
+            "  • Real-time Updates - Diagrams reload automatically when files change\n"
+            "  • Multi-file Support - Browse all .mmd files in a directory\n"
+            "  • Interactive Controls - Zoom, pan, and export diagrams as SVG\n"
+            "  • Hot Reload - Server-Sent Events (SSE) for instant updates\n\n"
+            "File Modes:\n"
+            "  - Single File: Provide a .mmd file path to preview that file\n"
+            "  - Directory: Provide a directory path to browse all .mmd files"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    # Add 'path' positional argument: the file or folder to preview
     serve_parser.add_argument(
-        "path", help="Path to the .mmd file or directory to serve"
+        "path",
+        help="Path to a .mmd file or directory containing .mmd files",
     )
 
-    # Add '--port' optional argument: server listening port
     serve_parser.add_argument(
-        "--port", type=int, default=8000, help="Port to bind to (default: 8000)"
+        "-p",
+        "--port",
+        type=int,
+        default=8000,
+        help="Port number for the server (default: 8000)",
     )
 
-    # Add '--master' deprecated argument
-    # Kept for backward compatibility with older scripts, but ignored in code
     serve_parser.add_argument(
-        "--master",
+        "--no-browser",
         action="store_true",
-        help="Deprecated: Master mode is now the default.",
+        help="Do not automatically open the browser",
     )
 
-    # Parse the command-line arguments
     args = parser.parse_args()
 
-    # Dispatch to the corresponding function based on the subcommand
     if args.command == "serve":
-        # If 'serve' command is used, call the serve function
-        serve(args.path, args.port)
+        serve(args.path, args.port, open_browser=not args.no_browser)
+    elif args.command == "version":
+        print(f"MermaidTrace version: {get_package_version()}")
 
 
 if __name__ == "__main__":
-    # Execute main function when script is run directly
     main()

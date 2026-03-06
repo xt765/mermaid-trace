@@ -17,6 +17,7 @@ from typing import AsyncGenerator, Set, Any
 try:
     from fastapi import FastAPI, Request, HTTPException
     from fastapi.responses import HTMLResponse, StreamingResponse
+    from fastapi.staticfiles import StaticFiles
     import uvicorn
 
     HAS_SERVER_DEPS = True
@@ -30,11 +31,15 @@ except ImportError:
         pass
 
     class Mock:
-        pass
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
 
     class MockApp:
         def get(self, *args: Any, **kwargs: Any) -> Any:
             return lambda f: f
+
+        def mount(self, *args: Any, **kwargs: Any) -> Any:
+            return None
 
     # Create fake FastAPI class and objects to prevent NameError
     def FastAPI(**kw: Any) -> MockApp:  # type: ignore
@@ -44,6 +49,7 @@ except ImportError:
     HTTPException = MockException  # type: ignore
     HTMLResponse = Mock  # type: ignore
     StreamingResponse = Mock  # type: ignore
+    StaticFiles = Mock  # type: ignore
 
 # Attempt to import file monitoring dependencies (Watchdog).
 try:
@@ -56,6 +62,12 @@ except ImportError:
 
 # Initialize the FastAPI application
 app = FastAPI(title="MermaidTrace Preview Server")
+
+# Mount static files directory for local resources (CSS, JS)
+# This allows the server to serve these files without external CDN dependencies
+STATIC_DIR = Path(__file__).parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 # Global state class for managing SSE (Server-Sent Events) connections
@@ -116,10 +128,10 @@ HTML_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MermaidTrace Master Preview</title>
-    <!-- External Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Local Static Resources (No CDN dependency) -->
+    <script src="/static/mermaid.min.js"></script>
+    <script src="/static/svg-pan-zoom.min.js"></script>
+    <link href="/static/tailwind.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8fafc; }
         .mermaid { background: white; }

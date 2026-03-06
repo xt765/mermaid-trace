@@ -335,7 +335,24 @@ async def trace_sampling_middleware(request: Request, call_next):
 要查看您的图表，请使用 CLI：
 
 ```bash
-mermaid-trace serve flow.mmd --port 8000
+# 预览单个文件
+mermaid-trace serve flow.mmd
+
+# 预览目录中的所有 .mmd 文件
+mermaid-trace serve ./diagrams
+
+# 使用自定义端口
+mermaid-trace serve flow.mmd --port 3000
+
+# 不自动打开浏览器
+mermaid-trace serve flow.mmd --no-browser
+
+# 显示版本
+mermaid-trace version
 ```
 
-这将启动本地服务器并打开浏览器。它会监控文件更改并立即自动刷新页面。
+这将启动本地服务器，具有以下功能：
+- **热重载**：文件更改时自动刷新
+- **多文件支持**：浏览目录中的所有 .mmd 文件
+- **交互控制**：缩放、平移和导出为 SVG
+- **离线支持**：无需网络连接即可使用

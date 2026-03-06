@@ -331,7 +331,24 @@ async def trace_sampling_middleware(request: Request, call_next):
 To view your diagrams, use the CLI:
 
 ```bash
-mermaid-trace serve flow.mmd --port 8000
+# Preview a single file
+mermaid-trace serve flow.mmd
+
+# Preview all .mmd files in a directory
+mermaid-trace serve ./diagrams
+
+# Use custom port
+mermaid-trace serve flow.mmd --port 3000
+
+# Don't auto-open browser
+mermaid-trace serve flow.mmd --no-browser
+
+# Show version
+mermaid-trace version
 ```
 
-This starts a local server and opens your browser. It monitors the file for changes and auto-refreshes the page instantly.
+This starts a local server with:
+- **Hot Reload**: Auto-refreshes when files change
+- **Multi-file Support**: Browse all .mmd files in a directory
+- **Interactive Controls**: Zoom, pan, and export as SVG
+- **Offline Support**: Works without network connection

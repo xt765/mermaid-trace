@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-03-06
+
+### Changed
+- **Dependencies**: FastAPI and Uvicorn are now required dependencies instead of optional. Users no longer need to install `mermaid-trace[server]` separately.
+- **CLI Improvements**: Enhanced help messages with detailed descriptions, examples, and feature highlights (all in English).
+- **Removed Legacy**: Completely removed the deprecated `--master` flag for cleaner CLI interface.
+
+### Added
+- **Offline Support**: Web preview server now uses local static resources (Tailwind CSS, Mermaid.js, svg-pan-zoom) instead of external CDN dependencies. The preview works completely offline without network connectivity.
+- **Version Command**: Added `mermaid-trace version` command to display the installed version.
+- **Browser Control**: Added `--no-browser` flag to prevent automatic browser opening when starting the server.
+
+### Fixed
+- **Installation Experience**: Resolved user confusion about needing to install optional dependencies separately. Now `pip install mermaid-trace` provides all features out of the box.
+
 ## [0.7.0] - 2026-02-24
 
 ### Added
