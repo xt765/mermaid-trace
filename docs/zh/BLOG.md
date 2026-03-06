@@ -25,159 +25,401 @@
 
 ---
 
-# MermaidTrace v0.7.0：重构 Python 调用链可视化的新范式
+# 我写了一个让代码自己画出时序图的工具
 
-**日期**: 2026-02-24
-**作者**: 玄同765
+## 当你在凌晨两点调试递归调用时
 
-### **前言：从“黑盒”到“全景图”**
+你接手了一个遗留项目，代码结构复杂，函数层层嵌套。你打开日志文件，看到的是这样的输出：
 
-在微服务和 AI Agent 盛行的今天，系统的**可观测性 (Observability)** 面临着前所未有的挑战：
-*   **日志 (Log)** 过于琐碎，难以还原完整的业务上下文。
-*   **分布式追踪 (Trace)** 如 Jaeger/Zipkin 虽然强大，但部署沉重，且往往侧重于运维监控而非开发调试。
-*   **代码阅读** 随着项目迭代，函数调用关系变得错综复杂，"屎山"代码难以维护。
+```
+[INFO] Entering process_order
+[INFO] Entering validate_user
+[INFO] Entering check_permission
+[INFO] Exiting check_permission
+[INFO] Entering get_user_info
+[INFO] Exiting get_user_info
+[INFO] Exiting validate_user
+[INFO] Entering create_order
+...
+```
 
-**MermaidTrace** 的诞生正是为了解决这一痛点。它秉持 **"Code-as-Diagram"** 的理念，通过极低侵入性的装饰器，将 Python 代码的运行时逻辑实时转化为清晰、美观的 Mermaid 时序图。
+几百行日志，你试图在脑海中拼凑出调用关系。半小时后，你放弃了，决定手动画一个时序图。又过了两小时，图画好了——但第二天代码改了，图又过时了。
 
-**v0.7.0** 是一个里程碑式的版本，我们不仅统一了 CLI 体验，更在分布式追踪、数据隐私和高性能 I/O 上取得了突破。
+这不是假设，这是很多开发者的日常。**MermaidTrace** 的出现改变了这一切：只需添加一个装饰器，代码执行时就会自动生成时序图。
+
+```mermaid
+flowchart LR
+    A[添加装饰器] --> B[运行代码]
+    B --> C[自动生成时序图]
+    C --> D[实时预览]
+    
+    style C fill:#e8f5e9
+```
 
 ---
 
-### **核心架构解析 (Architecture Deep Dive)**
+## MermaidTrace 是什么？
 
-MermaidTrace 之所以能做到“轻量”与“强大”并存，得益于其分层解耦的架构设计：
+MermaidTrace 是一个专门的日志工具，它能**自动从代码执行中生成 Mermaid 时序图**。它特别适合：
+
+- 可视化复杂业务逻辑
+- 理解微服务交互流程
+- 调试递归和异步代码
+- 自动生成技术文档
 
 ```mermaid
 flowchart TB
-    %% 样式定义
-    classDef userLayer fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1,rx:5,ry:5
-    classDef coreLayer fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#bf360c,rx:5,ry:5
-    classDef ioLayer fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20,rx:5,ry:5
-    classDef vizLayer fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c,rx:5,ry:5
-    classDef storage fill:#eceff1,stroke:#455a64,stroke-width:2px,color:#263238,shape:cyl
-
-    subgraph User["👤 用户接入层 (Integration)"]
-        direction TB
-        Decorator["@trace / @trace_class"]:::userLayer
-        Middleware["FastAPI Middleware"]:::userLayer
-        Callback["LangChain Callback"]:::userLayer
+    subgraph 输入[你的代码]
+        A[Python 函数]
     end
-
-    subgraph Core["⚙️ 核心引擎 (Core Engine)"]
-        direction TB
-        Context["ContextVars<br/>(Trace Context)"]:::coreLayer
-        EventBus["Event Bus<br/>(LogContext)"]:::coreLayer
-        Masker["Data Masking<br/>(Sanitizer)"]:::coreLayer
+    
+    subgraph MermaidTrace[处理过程]
+        B[装饰器拦截] --> C[记录调用事件]
+        C --> D[构建调用链]
+        D --> E[生成 Mermaid 语法]
     end
-
-    subgraph IO["⚡ 异步 I/O 层 (Async I/O)"]
-        direction TB
-        Queue["Async Queue<br/>(Non-blocking)"]:::ioLayer
-        Writer["File Handler<br/>(Rotating/Timed)"]:::ioLayer
+    
+    subgraph 输出[可视化结果]
+        E --> F[时序图]
+        E --> G[交互式预览]
     end
-
-    Storage[(".mmd File")]:::storage
-
-    subgraph Viz["🌐 可视化层 (Visualization)"]
-        direction TB
-        Watcher["Watchdog<br/>(File Monitor)"]:::vizLayer
-        Server["FastAPI Server<br/>(SSE Support)"]:::vizLayer
-        Browser["Web Browser<br/>(Mermaid.js + PanZoom)"]:::vizLayer
-    end
-
-    %% 数据流向
-    Decorator --> Context
-    Middleware --> Context
-    Callback --> Context
-    Context --> EventBus
-    EventBus --> Masker
-    Masker --> Queue
-    Queue --> Writer
-    Writer --> Storage
-    Storage -.-> Watcher
-    Watcher --> Server
-    Server == "SSE Push" ==> Browser
-
-    %% 连接样式
-    linkStyle default stroke:#607d8b,stroke-width:2px
+    
+    A --> B
+    
+    style B fill:#e3f2fd
+    style F fill:#fff3e0
 ```
 
-1.  **上下文保持 (Context Propagation)**: 核心利用 Python 的 `contextvars`，确保在 `asyncio` 协程切换或线程池调度时，Trace ID 不会丢失，从而完美支持异步并发场景。
-2.  **高性能 I/O**: 采用**生产者-消费者模型**。业务线程只需将事件推入无锁队列 (Async Queue)，由独立的后台线程负责文件写入，主线程阻塞耗时几乎为零。
-3.  **实时反馈回路**: 通过 Watchdog 监听文件变动，结合 Server-Sent Events (SSE) 技术，实现代码运行完毕，浏览器图表即刻刷新的流畅体验。
+### 核心价值
+
+传统的日志是线性的文本，你需要阅读、理解、在脑海中重建调用关系。MermaidTrace 把这个过程自动化了——**日志变成了图**。
 
 ---
 
-### **v0.7.0 关键特性 (Key Features)**
+## 快速上手：三步开始
 
-#### **1. 统一的 CLI 体验**
-我们彻底重构了命令行工具。现在，`mermaid-trace serve` 是唯一的入口。它会自动检测目标是文件还是目录，并智能启动增强型 Web 服务器。
-*   **智能降级**: 如果未安装 `fastapi`，它会给出清晰的安装指引，而不是直接报错。
-*   **交互增强**: 默认支持图表缩放、平移和多文件切换。
+### 1. 安装
 
-#### **2. 分布式追踪模拟**
-随着微服务架构的普及，跨服务的调用追踪变得至关重要。v0.7.0 支持 **W3C Trace Context** 和 **B3** 标准。
-![分布式追踪预览](../images/distributed_trace_preview.png)
-*   **自动注入**: FastAPI 中间件会自动解析请求头中的 Trace ID。
-*   **链路串联**: 即使跨越多个 HTTP 请求，生成的时序图也能保持逻辑连贯。
-
-#### **3. 数据隐私与脱敏**
-在金融或企业级应用中，敏感数据（如密码、Token）绝对不能落盘。我们引入了 `DataMasker`：
-*   **递归脱敏**: 自动遍历字典、列表和对象属性。
-*   **模式匹配**: 支持正则匹配字段名（如 `password`, `secret`），自动替换为 `***`。
-
----
-
-### **实战场景 (Use Cases)**
-
-#### **场景一：遗留系统重构**
-面对几十万行的“屎山”代码，只需在关键类上添加 `@trace_class`，运行一次业务流程，即可得到一张完整的调用关系图，快速理清依赖关系。
-
-#### **场景二：AI Agent 调试**
-AI Agent 的决策路径往往是不确定的。通过 `MermaidTraceCallbackHandler`，你可以清晰地看到 Agent 是如何进行思考 (Thought)、调用工具 (Action) 并得出结论 (Observation) 的。
-
-#### **场景三：性能瓶颈定位**
-利用时序图的垂直长度和时间戳，可以直观地发现哪个函数调用耗时过长，或者哪里发生了不必要的串行调用。
-
----
-
-### **快速上手：三步开启可视化之旅**
-
-#### **1. 安装**
 ```bash
 pip install mermaid-trace
 ```
 
-#### **2. 编码**
+### 2. 添加装饰器
+
 ```python
-from mermaid_trace import trace, configure_flow
+from mermaid_trace import trace, trace_class
 
-configure_flow("flow.mmd", overwrite=True)
+@trace_class
+class OrderService:
+    """订单服务类"""
+    
+    def process_order(self, order_id: int) -> dict:
+        """处理订单"""
+        self.validate_order(order_id)
+        return self.create_order(order_id)
+    
+    def validate_order(self, order_id: int) -> bool:
+        """验证订单"""
+        return order_id > 0
+    
+    def create_order(self, order_id: int) -> dict:
+        """创建订单"""
+        return {"order_id": order_id, "status": "created"}
 
-@trace(source="User", target="App")
-def hello():
-    return "World"
-
-hello()
+# 运行代码
+service = OrderService()
+result = service.process_order(123)
 ```
 
-#### **3. 预览**
+### 3. 查看时序图
+
 ```bash
 mermaid-trace serve flow.mmd
 ```
 
+这会启动一个本地服务器，自动打开浏览器，展示生成的时序图：
+
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant OrderService
+    participant validate_order
+    participant create_order
+    
+    Caller->>OrderService: process_order
+    OrderService->>validate_order: validate_order
+    validate_order-->>OrderService: True
+    OrderService->>create_order: create_order
+    create_order-->>OrderService: {"order_id": 123}
+    OrderService-->>Caller: result
+```
+
 ---
 
-### **总结与展望**
+## 在 LLM 应用中的实践
 
-MermaidTrace 的初衷很简单：**让代码逻辑一目了然**。它是真实、低侵入、可视化且可扩展的。
+### 场景一：可视化 RAG 检索流程
 
-未来，我们将探索：
-- [ ] **性能热力图**：在时序图中直观展示函数耗时瓶颈。
-- [ ] **IDE 插件**：直接在 VS Code / PyCharm 中预览交互图。
-- [ ] **OpenTelemetry 导出**：支持将数据导出到 Jaeger 等专业 APM 平台。
+RAG 系统的检索流程往往涉及多个步骤：查询改写、向量检索、重排序、上下文构建。用 MermaidTrace 可以清晰展示整个流程。
 
-如果你觉得这个工具有所帮助，请在 GitHub 上给我一个 ⭐️ Star！
+```python
+from mermaid_trace import trace
+from typing import List
+
+@trace
+class RAGPipeline:
+    """RAG 检索管道"""
+    
+    def __init__(self):
+        self.retriever = VectorRetriever()
+        self.reranker = Reranker()
+        self.context_builder = ContextBuilder()
+    
+    async def query(self, question: str) -> dict:
+        # 查询改写
+        refined_query = await self.refine_query(question)
+        
+        # 向量检索
+        documents = await self.retriever.search(refined_query)
+        
+        # 重排序
+        ranked_docs = await self.reranker.rerank(documents, question)
+        
+        # 构建上下文
+        context = self.context_builder.build(ranked_docs)
+        
+        return {"query": question, "context": context}
+```
+
+生成的时序图清晰展示了 RAG 的完整流程：
+
+```mermaid
+sequenceDiagram
+    participant main
+    participant RAGPipeline
+    participant VectorRetriever
+    participant Reranker
+    participant ContextBuilder
+    
+    main->>RAGPipeline: query
+    RAGPipeline->>RAGPipeline: refine_query
+    RAGPipeline->>VectorRetriever: search
+    VectorRetriever-->>RAGPipeline: [doc_0, doc_1, ...]
+    RAGPipeline->>Reranker: rerank
+    Reranker-->>RAGPipeline: [doc_0, doc_1, doc_2]
+    RAGPipeline->>ContextBuilder: build
+    ContextBuilder-->>RAGPipeline: context string
+    RAGPipeline-->>main: result
+```
+
+### 场景二：追踪 LangChain Agent 执行
+
+LangChain 的 Agent 执行流程复杂，涉及工具调用、决策循环、错误处理。MermaidTrace 可以帮你理解每一步发生了什么。
+
+```python
+from mermaid_trace import trace_class
+
+@trace_class
+class LLMAgent:
+    """LLM Agent"""
+    
+    def __init__(self):
+        self.tools = {"search": self.search, "calculator": self.calculator}
+    
+    async def run(self, query: str) -> str:
+        for i in range(3):
+            action = await self.decide(query)
+            if action["type"] == "finish":
+                return action["answer"]
+            result = await self.tools[action["tool"]](action["input"])
+        return "完成"
+```
+
+生成的时序图清晰展示了 Agent 的决策循环：
+
+```mermaid
+sequenceDiagram
+    participant main
+    participant LLMAgent
+    participant search
+    participant calculator
+    
+    main->>LLMAgent: run
+    LLMAgent->>LLMAgent: decide
+    LLMAgent-->>LLMAgent: {tool: search}
+    LLMAgent->>search: search
+    search-->>LLMAgent: 结果
+    LLMAgent->>LLMAgent: decide
+    LLMAgent-->>LLMAgent: {tool: calculator}
+    LLMAgent->>calculator: calculator
+    calculator-->>LLMAgent: 结果
+    LLMAgent->>LLMAgent: decide
+    LLMAgent-->>LLMAgent: {type: finish}
+    LLMAgent-->>main: 最终答案
+```
+
+### 场景三：调试 FastAPI 异步流程
+
+FastAPI 的异步处理流程难以追踪，MermaidTrace 可以帮你理解请求的完整生命周期。
+
+```python
+from fastapi import FastAPI, Depends
+from mermaid_trace import trace
+
+app = FastAPI()
+
+@trace
+class DatabaseService:
+    async def get_user(self, user_id: int) -> dict:
+        return {"id": user_id, "name": f"User{user_id}"}
+    
+    async def get_orders(self, user_id: int) -> list:
+        return [{"id": i} for i in range(3)]
+
+@app.get("/users/{user_id}")
+async def get_user(user_id: int, db: DatabaseService = Depends(get_db)):
+    user, orders = await asyncio.gather(
+        db.get_user(user_id),
+        db.get_orders(user_id)
+    )
+    return {"user": user, "orders": orders}
+```
+
+---
+
+## 核心装饰器详解
+
+### @trace - 函数级追踪
+
+```python
+from mermaid_trace import trace
+
+@trace
+def process_data(data: str) -> str:
+    return data.upper()
+```
+
+### @trace_class - 类级追踪
+
+```python
+from mermaid_trace import trace_class
+
+@trace_class
+class MyService:
+    def method_a(self):
+        pass
+```
+
+### @trace_interaction - 交互追踪
+
+```python
+from mermaid_trace import trace_interaction
+
+@trace_interaction
+async def complex_operation():
+    result = await step_one()
+    return await step_two(result)
+```
+
+---
+
+## CLI 工具
+
+MermaidTrace 提供了内置的 CLI 工具，支持热重载和实时预览：
+
+```bash
+# 预览单个文件
+mermaid-trace serve flow.mmd
+
+# 预览目录
+mermaid-trace serve ./diagrams
+
+# 指定端口
+mermaid-trace serve flow.mmd --port 3000
+
+# 不自动打开浏览器
+mermaid-trace serve flow.mmd --no-browser
+
+# 查看版本
+mermaid-trace version
+```
+
+```mermaid
+flowchart LR
+    A[代码变更] --> B[自动重新运行]
+    B --> C[生成新时序图]
+    C --> D[浏览器自动刷新]
+    
+    style D fill:#fff3e0
+```
+
+**v0.7.1 新特性**：
+- ✅ 完全离线支持：无需网络连接即可使用
+- ✅ 简化安装：只需 `pip install mermaid-trace`
+
+---
+
+## 与 LangChain 的集成
+
+MermaidTrace 提供了 LangChain 的专用处理器：
+
+```python
+from mermaid_trace.integrations.langchain import MermaidTraceCallbackHandler
+
+handler = MermaidTraceCallbackHandler()
+
+# 附加到 LangChain 执行
+chain = LLMChain(llm=llm, prompt=prompt)
+result = chain.run("你好", callbacks=[handler])
+
+# 自动生成 LangChain 执行时序图
+```
+
+---
+
+## 性能考虑
+
+MermaidTrace 设计为低开销：
+
+| 场景 | 开销 |
+|:---|:---|
+| 简单函数调用 | < 1ms |
+| 异步操作 | 几乎无开销 |
+| 深度递归 | 智能折叠 |
+
+生产环境建议：
+
+```python
+import os
+from mermaid_trace import set_enabled
+
+# 根据环境变量控制
+set_enabled(os.getenv("ENABLE_TRACE", "false").lower() == "true")
+```
+
+---
+
+## 总结
+
+| 场景 | MermaidTrace 的价值 |
+|:---|:---|
+| 接手遗留代码 | 一键生成调用关系图 |
+| 调试异步流程 | 可视化并发执行顺序 |
+| LLM Agent 开发 | 理解决策循环和工具调用 |
+| 技术文档 | 自动生成时序图，永不过时 |
+| RAG 系统 | 展示检索管道的完整流程 |
+
+MermaidTrace 的核心理念是：**日志不应该是文本，而应该是图**。在 LLM 应用开发中，当执行流程越来越复杂时，可视化比阅读日志更高效。
+
+一行装饰器，让你的代码自己"画"出执行流程。
+
+---
+
+## 参考资料
 
 - **GitHub**: [xt765/mermaid-trace](https://github.com/xt765/mermaid-trace)
 - **Gitee**: [xt765/mermaid-trace](https://gitee.com/xt765/mermaid-trace)
+- **PyPI**: [mermaid-trace](https://pypi.org/project/mermaid-trace/)
+- **在线体验**: [Colab Demo](https://colab.research.google.com/github/xt765/mermaid-trace/blob/main/examples/MermaidTrace_Demo.ipynb)
+
+如果你觉得这个工具有所帮助，请在 GitHub 上给我一个 ⭐️ Star！
